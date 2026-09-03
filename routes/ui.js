@@ -1,0 +1,101 @@
+const MAX_READ_BYTES = 2 * 1024 * 1024;
+
+export default function registerPluginUiRoutes(app, ctx) {
+  app.get('/page', (c) => c.html(renderShell(c, ctx)));
+
+  // M0 keeps the resource boundary on the server: the iframe never reads a host path directly.
+  app.post('/resources/list', async (c) => {
+    try {
+      const input = await c.req.json();
+      const resource = validateResource(input?.resource);
+      const pluginCtx = c.get('pluginCtx') || ctx;
+      const result = await pluginCtx.resources.list(resource);
+      return c.json({
+        resourceKey: result.resourceKey,
+        resource: result.resource,
+        items: result.items,
+      });
+    } catch (error) {
+      return c.json({ error: safeErrorMessage(error) }, 400);
+    }
+  });
+
+  app.post('/resources/read', async (c) => {
+    try {
+      const input = await c.req.json();
+      const resource = validateResource(input?.resource);
+      const pluginCtx = c.get('pluginCtx') || ctx;
+      const stat = await pluginCtx.resources.stat(resource);
+      const size = stat?.version?.size;
+      if (typeof size === 'number' && size > MAX_READ_BYTES) {
+        return c.json({ error: `文件超过 M0 的 2 MB 阅读上限（${size} bytes）。` }, 413);
+      }
+      const result = await pluginCtx.resources.read(resource);
+      const bytes = toUint8Array(result.content);
+      const isBinary = bytes.subarray(0, 8192).includes(0);
+      return c.json({
+        resourceKey: result.resourceKey,
+        resource: result.resource,
+        version: result.version,
+        binary: isBinary,
+        content: isBinary ? null : new TextDecoder().decode(bytes),
+      });
+    } catch (error) {
+      return c.json({ error: safeErrorMessage(error) }, 400);
+    }
+  });
+}
+
+function renderShell(c, ctx) {
+  const hanaCss = c.req.query('hana-css') || '';
+  const theme = c.req.query('hana-theme') || 'inherit';
+  const assetBase = `/api/plugins/${encodeURIComponent(ctx.pluginId)}/assets`;
+  const title = 'Hana Reader';
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  ${hanaCss ? `<link rel="stylesheet" href="${escapeAttr(hanaCss)}">` : ''}
+  <link rel="stylesheet" href="${assetBase}/panel.css">
+</head>
+<body data-hana-theme="${escapeAttr(theme)}" data-surface="page">
+  <div id="root"></div>
+  <script type="module" src="${assetBase}/panel.js"></script>
+</body>
+</html>`;
+}
+
+function validateResource(resource) {
+  if (!resource || typeof resource !== 'object' || typeof resource.kind !== 'string') {
+    throw new Error('A valid ResourceRef is required.');
+  }
+  const allowedKinds = new Set(['local-file', 'mount', 'session-file', 'resource', 'url']);
+  if (!allowedKinds.has(resource.kind)) {
+    throw new Error(`Unsupported resource kind: ${resource.kind}`);
+  }
+  return resource;
+}
+
+function toUint8Array(value) {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  return new Uint8Array(value || []);
+}
+
+function safeErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error || 'Unknown resource error');
+}
+
+function escapeAttr(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function escapeHtml(value) {
+  return escapeAttr(value).replace(/>/g, '&gt;');
+}

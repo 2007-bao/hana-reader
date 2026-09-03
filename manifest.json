@@ -1,0 +1,40 @@
+{
+  "manifestVersion": 1,
+  "id": "hana-reader",
+  "name": "Hana Reader",
+  "version": "0.1.0",
+  "description": "A local-first reading workspace for reviewing AI and multi-agent artifacts.",
+  "trust": "full-access",
+  "minAppVersion": "0.159.0",
+  "capabilities": [
+    "resource.read"
+  ],
+  "ui": {
+    "hostCapabilities": [
+      "resource.pick",
+      "resource.requestAccess"
+    ]
+  },
+  "contributes": {
+    "page": {
+      "title": {
+        "zh": "阅界",
+        "en": "Hana Reader"
+      },
+      "route": "/page",
+      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M5 4.5h10.5A2.5 2.5 0 0 1 18 7v12.5H7.5A2.5 2.5 0 0 1 5 17V4.5Z\"/><path d=\"M18 19.5H7.5A2.5 2.5 0 0 0 5 22\"/><path d=\"M8.5 8h6M8.5 11.5h6M8.5 15h4\"/></svg>"
+    }
+  },
+  "dev": {
+    "scenarios": [
+      {
+        "id": "open-page",
+        "steps": [
+          {
+            "openSurface": "/page"
+          }
+        ]
+      }
+    ]
+  }
+}

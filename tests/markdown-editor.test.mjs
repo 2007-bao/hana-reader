@@ -88,6 +88,10 @@ test('Milkdown editor mounts locally and round-trips Markdown in Chromium', asyn
         container.innerHTML = '';
       }
       document.body.dataset.roundtrip = String(roundTripCount);
+      const securityEditor = await mountMarkdownEditor(container, '<script>alert(1)</script>\\n\\n[bad](javascript:alert(1))\\n');
+      document.body.dataset.securityScripts = String(container.querySelectorAll('script').length);
+      document.body.dataset.securityJsHref = container.querySelector('a')?.getAttribute('href') || '';
+      await securityEditor.destroy();
     })();
   `, 'utf8');
   execFileSync(process.execPath, [
@@ -117,6 +121,8 @@ test('Milkdown editor mounts locally and round-trips Markdown in Chromium', asyn
     assert.match(dom, /data-serialized="[^"]*edited/);
     assert.match(dom, /data-serialized="[^"]*\* \[x\] task/);
     assert.match(dom, /data-roundtrip="20"/);
+    assert.match(dom, /data-security-scripts="0"/);
+    assert.match(dom, /data-security-js-href=""/);
   } finally {
     await fs.rm(entryPath, { force: true });
     await fs.rm(tempDir, { recursive: true, force: true });

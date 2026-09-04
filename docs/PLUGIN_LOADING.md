@@ -17,16 +17,16 @@
 
 ## 2. 最关键的鉴权兼容点
 
-本地 HanaAgent 连接会在插件页面 URL 中携带 `token`。页面壳生成静态资源地址时，也必须把这个参数传递给 `panel.js` 和 `panel.css`：
+本地 HanaAgent 连接会在插件页面 URL 中携带 `token`。页面壳生成静态资源地址时，必须把这个参数传递给 `panel.js` 和 `panel.css`；同时要附带随版本变化的资源修订号，避免已打开的 iframe 或浏览器继续使用旧 JS/CSS：
 
 ```js
 const token = c.req.query('token') || '';
-const withToken = (url) => token
-  ? `${url}?${new URLSearchParams({ token }).toString()}`
-  : url;
+const params = new URLSearchParams({ v: ASSET_REVISION });
+if (token) params.set('token', token);
+const withAssetQuery = (url) => `${url}?${params.toString()}`;
 
-const panelCss = withToken(`${assetBase}/panel.css`);
-const panelJs = withToken(`${assetBase}/panel.js`);
+const panelCss = withAssetQuery(`${assetBase}/panel.css`);
+const panelJs = withAssetQuery(`${assetBase}/panel.js`);
 ```
 
 否则可能出现：
@@ -35,7 +35,7 @@ const panelJs = withToken(`${assetBase}/panel.js`);
 - `assets/panel.js` 无法通过本地鉴权；
 - iframe 只显示初始加载提示，或被误认为空白页。
 
-这是 Hana Reader v0.1.2 修复的主要问题。参考插件 `session-insight` 也采用了相同的资源 URL 处理方式。
+这是 Hana Reader v0.1.2 修复的主要问题。参考插件 `session-insight` 也采用了相同的资源 URL 处理方式。v0.1.11 进一步加入资源修订号，避免版本更新后复用旧缓存。
 
 ## 3. 前端握手约定
 
@@ -80,6 +80,7 @@ kind: event
 5. 检查 `panel.js` 是否发送 `hana.ready`，且发送时机在渲染之后。
 6. 检查资源加载失败是否有可见错误提示。
 7. 重新安装时提升插件版本，避免旧资源或旧安装记录造成混淆。
+8. 更新插件后关闭并重新打开阅界页面，确认页面顶部显示当前运行版本；不要只依赖插件管理器显示的版本号。
 
 ## 6. 资源与权限边界
 
@@ -93,3 +94,4 @@ kind: event
 - `v0.1.0`：初始 M0 页面与 ResourceIO 阅读链路。
 - `v0.1.1`：内联通信桥、渲染后握手、前端错误兜底。
 - `v0.1.2`：静态资源 URL 继承本地 Hana `token`，解决页面持续加载问题。
+- `v0.1.11`：静态资源 URL 增加版本修订号，并显示前端运行版本，避免旧 iframe / 缓存掩盖更新。

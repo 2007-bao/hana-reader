@@ -2,6 +2,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
+const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
 let sequence = 0;
 const parentWindow = window.parent;
@@ -134,9 +135,49 @@ const state = {
   rootNode: null,
   current: null,
   busy: false,
+  restoring: false,
   status: '请选择一个文件夹开始阅读',
   error: '',
 };
+
+function readSavedSession() {
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || !value.rootResource || typeof value.rootResource.kind !== 'string') {
+      return null;
+    }
+    return {
+      rootResource: value.rootResource,
+      rootName: typeof value.rootName === 'string' ? value.rootName : resourceName(value.rootResource),
+      currentPath: Array.isArray(value.currentPath) ? value.currentPath.filter((item) => typeof item === 'string') : [],
+      scrollTop: Number.isFinite(Number(value.scrollTop)) ? Math.max(0, Number(value.scrollTop)) : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveSession() {
+  if (!state.rootNode?.resource) return;
+  const snapshot = {
+    version: 1,
+    rootResource: state.rootNode.resource,
+    rootName: state.rootNode.name,
+    currentPath: state.current?.node?.relativePath || [],
+    scrollTop: state.current?.scrollTop || 0,
+  };
+  try {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // A restricted or full storage quota must never break the reader.
+  }
+}
+
+function nodePath(node) {
+  return Array.isArray(node?.relativePath) ? node.relativePath : [];
+}
 
 let nodeSequence = 0;
 
@@ -180,7 +221,7 @@ function childResource(parent, name) {
   return null;
 }
 
-function makeNode({ resource, name, isDirectory, size = null, mtimeMs = null }) {
+function makeNode({ resource, name, isDirectory, size = null, mtimeMs = null, relativePath = [] }) {
   return {
     id: nextNodeId(),
     resource,
@@ -188,6 +229,7 @@ function makeNode({ resource, name, isDirectory, size = null, mtimeMs = null }) 
     isDirectory,
     size,
     mtimeMs,
+    relativePath,
     items: [],
     loaded: false,
     expanded: false,
@@ -265,7 +307,7 @@ async function apiJson(path, body) {
 }
 
 async function chooseFolder() {
-  if (state.busy) return;
+  if (state.busy || state.restoring) return;
   state.error = '';
   state.status = '等待选择文件夹…';
   render();
@@ -287,10 +329,13 @@ async function chooseFolder() {
       resource,
       name: resourceName(resource),
       isDirectory: true,
+      relativePath: [],
     });
     state.rootNode.expanded = true;
     state.current = null;
+    saveSession();
     await loadDirectory(state.rootNode);
+    saveSession();
   } catch (error) {
     state.busy = false;
     state.error = error instanceof Error ? error.message : String(error);
@@ -314,6 +359,7 @@ async function loadDirectory(node) {
       isDirectory: Boolean(item.isDirectory),
       size: item.size,
       mtimeMs: item.mtimeMs,
+      relativePath: [...nodePath(node), item.name],
     }));
     node.loaded = true;
     node.expanded = true;
@@ -327,7 +373,7 @@ async function loadDirectory(node) {
   }
 }
 
-async function openFile(node) {
+async function openFile(node, options = {}) {
   if (!node?.resource || node.isDirectory || state.busy) return;
   state.busy = true;
   state.error = '';
@@ -343,7 +389,9 @@ async function openFile(node) {
       binary: Boolean(result.binary),
       content: result.content || '',
       version: result.version || null,
+      scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
     };
+    saveSession();
     state.status = `${languageLabel(state.current.language)} · 只读`;
   } catch (error) {
     state.error = error instanceof Error ? error.message : String(error);
@@ -360,6 +408,77 @@ async function refreshRoot() {
   state.rootNode.items = [];
   state.rootNode.loaded = false;
   await loadDirectory(state.rootNode);
+  saveSession();
+}
+
+async function restoreSession() {
+  const saved = readSavedSession();
+  if (!saved || state.rootNode || state.restoring) return;
+
+  state.restoring = true;
+  state.error = '';
+  state.status = '正在恢复上次工作区…';
+  render();
+
+  try {
+    state.rootNode = makeNode({
+      resource: saved.rootResource,
+      name: saved.rootName,
+      isDirectory: true,
+      relativePath: [],
+    });
+    state.rootNode.expanded = true;
+    await loadDirectory(state.rootNode);
+    if (!state.rootNode.loaded) {
+      throw new Error(state.error || '上次文件夹无法读取');
+    }
+
+    let node = state.rootNode;
+    for (const [index, segment] of saved.currentPath.entries()) {
+      const child = node.items.find((item) => item.name === segment);
+      if (!child) {
+        state.status = `已恢复文件夹，未找到上次文件：${saved.currentPath.join('/')}`;
+        state.restoring = false;
+        render();
+        return;
+      }
+
+      if (child.unsupported) {
+        state.status = `已恢复文件夹，但暂不支持恢复此资源：${saved.currentPath.join('/')}`;
+        state.restoring = false;
+        render();
+        return;
+      }
+
+      if (index === saved.currentPath.length - 1) {
+        if (child.isDirectory) break;
+        await openFile(child, { scrollTop: saved.scrollTop });
+        if (!state.current) return;
+        state.status = `${languageLabel(state.current.language)} · 已恢复上次位置`;
+        state.restoring = false;
+        render();
+        return;
+      }
+
+      if (!child.isDirectory) break;
+      child.expanded = true;
+      await loadDirectory(child);
+      if (!child.loaded) {
+        throw new Error(state.error || `无法读取目录：${child.name}`);
+      }
+      node = child;
+    }
+
+    state.status = '已恢复上次文件夹，请选择文件';
+  } catch (error) {
+    state.rootNode = null;
+    state.current = null;
+    state.error = `无法恢复上次工作区：${error instanceof Error ? error.message : String(error)}`;
+    state.status = '请选择文件夹重新开始';
+  } finally {
+    state.restoring = false;
+    render();
+  }
 }
 
 function toggleDirectory(node) {
@@ -673,7 +792,7 @@ function render() {
   root.innerHTML = `<div class="reader-app">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">阅</span><div><strong>Hana Reader</strong><small>AI 产物审阅工作台</small></div></div>
-      <div class="top-actions"><span class="status ${state.error ? 'error' : ''}">${escapeHtml(state.error || state.status)}</span><button class="button ghost" data-action="refresh" ${state.rootNode && !state.busy ? '' : 'disabled'}>↻ 刷新</button><button class="button primary" data-action="pick" ${state.busy ? 'disabled' : ''}>选择文件夹</button></div>
+      <div class="top-actions"><span class="status ${state.error ? 'error' : ''}">${escapeHtml(state.error || state.status)}</span><button class="button ghost" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'}>↻ 刷新</button><button class="button primary" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''}>选择文件夹</button></div>
     </header>
     <div class="workspace">
       <aside class="file-panel">
@@ -698,8 +817,19 @@ function render() {
     });
   });
 
+  const viewer = root.querySelector('.viewer-scroll');
+  if (viewer && state.current) {
+    viewer.scrollTop = state.current.scrollTop || 0;
+    viewer.addEventListener('scroll', () => {
+      if (!state.current) return;
+      state.current.scrollTop = viewer.scrollTop;
+      saveSession();
+    }, { passive: true });
+  }
+
   requestAnimationFrame(() => hana.ui.resize({ height: Math.max(680, root.scrollHeight) }));
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.2' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.3' });
+restoreSession();

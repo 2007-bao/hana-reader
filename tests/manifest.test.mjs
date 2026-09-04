@@ -14,7 +14,7 @@ test('manifest declares a full-access reader page with read-only resource access
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.2');
+  assert.equal(manifest.version, '0.1.3');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -44,4 +44,16 @@ test('M0 files exist and no write capability is declared', async () => {
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
   assert.match(route, /withToken/);
+});
+
+test('reader persists and restores the last workspace, file, and scroll position', async () => {
+  const panel = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+
+  assert.match(panel, /hana-reader:last-session:v1/);
+  assert.match(panel, /window\.localStorage\.getItem\(SESSION_STORAGE_KEY\)/);
+  assert.match(panel, /window\.localStorage\.setItem\(SESSION_STORAGE_KEY, JSON\.stringify\(snapshot\)\)/);
+  assert.match(panel, /currentPath: state\.current\?\.node\?\.relativePath/);
+  assert.match(panel, /scrollTop: state\.current\?\.scrollTop/);
+  assert.match(panel, /viewer\.addEventListener\('scroll'/);
+  assert.match(panel, /restoreSession\(\);/);
 });

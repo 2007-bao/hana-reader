@@ -1254,22 +1254,51 @@ button {
 .markdown-body h3,
 .markdown-body h4,
 .markdown-body h5,
-.markdown-body h6 {
+.markdown-body h6,
+.markdown-editor .ProseMirror h1,
+.markdown-editor .ProseMirror h2,
+.markdown-editor .ProseMirror h3,
+.markdown-editor .ProseMirror h4,
+.markdown-editor .ProseMirror h5,
+.markdown-editor .ProseMirror h6 {
   letter-spacing: 0.015em;
+  font-weight: 650;
 }
 
-.markdown-body h1 {
-  color: color-mix(in srgb, var(--reader-accent) 78%, var(--reader-text));
+.markdown-body h1,
+.markdown-editor .ProseMirror h1 {
+  color: var(--maple-red);
   font-size: 28px;
 }
 
-.markdown-body h2 {
-  color: color-mix(in srgb, var(--reader-accent) 66%, var(--reader-text));
+.markdown-body h2,
+.markdown-editor .ProseMirror h2 {
+  color: var(--maple-orange);
   font-size: 23px;
 }
 
-.markdown-body h3 {
-  color: color-mix(in srgb, var(--reader-accent) 54%, var(--reader-text));
+.markdown-body h3,
+.markdown-editor .ProseMirror h3 {
+  color: var(--maple-green);
+  font-size: 19px;
+}
+
+.markdown-body h4,
+.markdown-editor .ProseMirror h4 {
+  color: var(--maple-blue);
+  font-size: 17px;
+}
+
+.markdown-body h5,
+.markdown-editor .ProseMirror h5 {
+  color: var(--maple-purple);
+  font-size: 16px;
+}
+
+.markdown-body h6,
+.markdown-editor .ProseMirror h6 {
+  color: var(--maple-cyan);
+  font-size: 15px;
 }
 
 .markdown-body p {

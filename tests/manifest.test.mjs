@@ -38,6 +38,9 @@ test('reader source, built assets, and cache-busting route are present', async (
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
+    'assets/fonts/MapleMono-Regular.woff2',
+    'assets/fonts/MapleMono-Italic.woff2',
+    'assets/fonts/OFL.txt',
   ]) {
     await fs.access(path.join(root, relativePath));
   }
@@ -118,5 +121,8 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(engine, /FORBID_TAGS/);
   assert.match(engine, /highlight\.js/);
   assert.match(css, /\.code-viewer \.hljs-keyword/);
+  assert.match(css, /font-family: "Maple Mono"/);
+  assert.match(css, /--maple-purple/);
+  assert.match(css, /--reader-code-string: var\(--maple-green\)/);
   assert.match(css, /\.markdown-body \.hljs-string/);
 });

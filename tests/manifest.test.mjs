@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.4 reader page with guarded resource access', async () => {
+test('manifest declares the v0.4.1 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.4.0');
+  assert.equal(manifest.version, '0.4.1');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -51,12 +51,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.4\.0'/);
+  assert.match(route, /ASSET_REVISION = '0\.4\.1'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/write'/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.4\.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.4\.1'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);

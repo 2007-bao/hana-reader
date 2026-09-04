@@ -71,7 +71,7 @@ Maple 不是一组背景色，而是一套内容呈现系统，至少包括：
 
 ## 当前版本的问题
 
-`assets/panel.css` 目前只有字体名 fallback 和少量手写颜色变量，尚未真正分发 Maple Mono，也没有完整接入 Maple 的编辑器排版和代码 token 体系。因此当前 `v0.6.1` 只能视为布局与配色修正版，不能称为 Maple 视觉复用完成版。
+`assets/panel.css` 目前只有字体名 fallback 和少量手写颜色变量，尚未真正分发 Maple Mono，也没有完整接入 Maple 的编辑器排版和代码 token 体系。因此 `v0.6.1` 只能视为布局与配色修正版；`v0.7.0` 开始正式纳入 Maple Mono 和语义 token 复用，但仍需继续补齐上游组件的视觉回归。
 
 ## 下一阶段顺序
 

@@ -28,6 +28,8 @@
   --reader-middle-bg: color-mix(in srgb, #ffffff 88%, var(--reader-bg));
   --reader-side-bg: var(--reader-middle-bg);
   --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
+  --maple-line-height-normal: 1.8;
+  --maple-line-height-tight: 1.5;
   --reader-code-bg: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-middle-bg));
   --maple-red: hsl(0 45% 53%);
   --maple-orange: hsl(32 70% 46%);
@@ -1360,6 +1362,44 @@ button {
 .code-viewer .hljs-attr,
 .code-viewer .hljs-attribute {
   color: var(--reader-code-attr);
+}
+
+.markdown-body,
+.markdown-editor .ProseMirror {
+  line-height: var(--maple-line-height-normal);
+}
+
+.markdown-body ul > li::marker,
+.markdown-body ol > li::marker {
+  color: var(--maple-red);
+}
+
+.markdown-body blockquote,
+.markdown-editor .ProseMirror blockquote {
+  border-left-color: var(--maple-orange);
+}
+
+.markdown-body th {
+  color: var(--maple-blue);
+  background: color-mix(in srgb, var(--maple-blue) 8%, var(--reader-middle-bg));
+}
+
+.markdown-body tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--maple-cyan) 3%, transparent);
+}
+
+.markdown-body hr {
+  border-top-color: color-mix(in srgb, var(--maple-blue) 26%, var(--reader-divider));
+}
+
+.viewer-scroll,
+.editor-scroll,
+.tree-scroll,
+.copilot-scroll,
+.code-viewer,
+.source-editor {
+  scrollbar-color: color-mix(in srgb, var(--maple-blue) 34%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
 @media (max-width: 1020px) {

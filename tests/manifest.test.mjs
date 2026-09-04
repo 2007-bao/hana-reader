@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.5.1 reader page with guarded resource access', async () => {
+test('manifest declares the v0.6 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.5.1');
+  assert.equal(manifest.version, '0.6.0');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -32,6 +32,8 @@ test('reader source, built assets, and cache-busting route are present', async (
     'src/markdown-editor.js',
     'docs/S2_EDITOR_VALIDATION.md',
     'docs/S3_SAFE_WRITE.md',
+    'docs/S4_CODE_HTML.md',
+    'docs/S5_MAPLE_LAYOUT.md',
     'tests/write-route.test.mjs',
     'assets/hana-bridge.js',
     'assets/panel.js',
@@ -46,17 +48,18 @@ test('reader source, built assets, and cache-busting route are present', async (
   const panelSource = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
   const panelBundle = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
   const route = await fs.readFile(path.join(root, 'routes/ui.js'), 'utf8');
+  const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
   assert.ok(!panelSource.includes("from './hana-bridge.js'"));
   assert.match(panelSource, /render\(\);\s*hana\.ready\(/);
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.5\.1'/);
+  assert.match(route, /ASSET_REVISION = '0\.6\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/write'/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.5\.1'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.6\.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -75,6 +78,15 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /编辑/);
   assert.match(panelSource, /回撤/);
   assert.match(panelSource, /编辑自动保存/);
+  assert.match(panelSource, /reader-modebar/);
+  assert.match(panelSource, /panel-resizer/);
+  assert.match(panelSource, /toggle-left/);
+  assert.match(panelSource, /toggle-right/);
+  assert.match(panelSource, /pointerdown/);
+  assert.doesNotMatch(panelSource, /<header class=\"topbar\"/);
+  assert.match(css, /grid-template-columns: var\(--left-panel-width\)/);
+  assert.match(css, /height: 100vh/);
+  assert.match(css, /overflow: hidden/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {

@@ -540,8 +540,12 @@ function safeMarkdownUrl(value) {
 }
 
 function inlineMarkdown(value) {
-  let html = escapeHtml(value);
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  const codeSpans = [];
+  let html = escapeHtml(value).replace(/`([^`]+)`/g, (match, code) => {
+    const marker = `@@HANA_CODE_SPAN_${codeSpans.length}@@`;
+    codeSpans.push(`<code>${code}</code>`);
+    return marker;
+  });
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
@@ -553,7 +557,7 @@ function inlineMarkdown(value) {
       ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
       : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`;
   });
-  return html;
+  return html.replace(/@@HANA_CODE_SPAN_(\d+)@@/g, (match, index) => codeSpans[Number(index)]);
 }
 
 function parseMarkdownTableRow(line) {
@@ -747,6 +751,14 @@ function highlightCode(source, language) {
       continue;
     }
 
+    if (slashComments && char === '/' && next === '*') {
+      const end = source.indexOf('*/', index + 2);
+      const boundary = end === -1 ? source.length : end + 2;
+      html += token('token-comment', source.slice(index, boundary));
+      index = boundary;
+      continue;
+    }
+
     if (slashComments && char === '/' && next === '/') {
       const end = source.indexOf('\n', index);
       const boundary = end === -1 ? source.length : end;
@@ -897,5 +909,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.4' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.6' });
 restoreSession();

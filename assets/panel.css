@@ -590,6 +590,7 @@ button {
 .code-viewer,
 .markdown-code {
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-style: normal;
 }
 
 .markdown-body code {
@@ -663,7 +664,6 @@ button {
 
 .token-comment {
   color: #87968e;
-  font-style: italic;
 }
 
 .token-number {

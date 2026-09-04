@@ -104,3 +104,4 @@ kind: event
 - `v0.5.1`：为 HTML 预览增加 DOMPurify 净化，移除脚本、外链资源与嵌入内容。
 - `v0.6.0`：调整为 Maple 风格三栏布局，支持侧栏折叠与拖动调宽。
 - `v0.6.1`：统一三栏底色，减轻拖动分隔线，并补充 Maple 风格 Markdown 与代码配色变量。
+- `v0.7.0`：正式接入 Maple Mono、Maple 语义 token 色板、Markdown 内容排版与浅色滚动条。

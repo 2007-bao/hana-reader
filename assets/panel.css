@@ -9,6 +9,8 @@
   --reader-accent: var(--accent, #587d91);
   --reader-accent-soft: var(--accent-light, rgba(88, 125, 145, 0.12));
   --reader-shadow: 0 16px 40px rgba(45, 60, 70, 0.08);
+  --reader-middle-bg: color-mix(in srgb, #ffffff 88%, var(--reader-bg));
+  --reader-side-bg: color-mix(in srgb, #f3eee4 30%, var(--reader-card));
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -19,8 +21,11 @@
 html,
 body,
 #root {
+  width: 100%;
+  height: 100%;
   min-height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -34,7 +39,9 @@ button {
 }
 
 .reader-app {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 680px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background:
@@ -165,25 +172,58 @@ button {
   min-height: 0;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 254px minmax(0, 1fr) 288px;
+  grid-template-columns: var(--left-panel-width) 8px minmax(0, 1fr) 8px var(--right-panel-width);
+  overflow: hidden;
+}
+
+.reader-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--reader-card);
+}
+
+.panel-resizer {
+  position: relative;
+  z-index: 3;
+  cursor: col-resize;
+}
+
+.panel-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  content: '';
+  background: transparent;
+  transition: background 0.16s ease;
+}
+
+.panel-resizer:hover::after {
+  background: var(--reader-accent);
 }
 
 .file-panel,
 .copilot-panel {
   min-width: 0;
-  background: color-mix(in srgb, var(--reader-card) 74%, transparent);
+  background: var(--reader-side-bg);
+}
+
+.reader-panel {
+  background: var(--reader-middle-bg);
 }
 
 .file-panel {
   display: flex;
-  min-height: calc(100vh - 102px);
+  min-height: 0;
   flex-direction: column;
   border-right: 1px solid var(--reader-border);
 }
 
 .copilot-panel {
   display: flex;
-  min-height: calc(100vh - 102px);
+  min-height: 0;
   flex-direction: column;
   border-left: 1px solid var(--reader-border);
 }
@@ -193,7 +233,59 @@ button {
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  padding: 22px 17px 14px;
+  padding: 16px 14px 12px;
+}
+
+.panel-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-tool,
+.panel-collapse {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--reader-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.panel-tool:hover:not(:disabled),
+.panel-collapse:hover:not(:disabled) {
+  color: var(--reader-accent);
+  background: var(--reader-accent-soft);
+}
+
+.file-panel.is-collapsed .panel-heading {
+  align-items: center;
+  justify-content: center;
+  padding: 12px 4px;
+}
+
+.file-panel.is-collapsed .panel-heading > div:first-child,
+.file-panel.is-collapsed .panel-heading .panel-count,
+.file-panel.is-collapsed .panel-heading .panel-tool,
+.file-panel.is-collapsed .tree-scroll,
+.file-panel.is-collapsed .file-panel-footer {
+  display: none;
+}
+
+.file-panel.is-collapsed .panel-heading-actions {
+  display: block;
+}
+
+.copilot-panel.is-collapsed {
+  align-items: center;
+  padding-top: 12px;
+}
+
+.copilot-panel.is-collapsed .panel-collapse {
+  display: inline-grid;
 }
 
 .eyebrow {
@@ -492,9 +584,26 @@ button {
 
 .viewer-scroll,
 .editor-scroll {
-  max-height: calc(100vh - 168px);
+  height: calc(100% - 54px);
+  max-height: none;
   overflow: auto;
-  padding: 30px clamp(20px, 5vw, 70px) 60px;
+  padding: 24px clamp(20px, 5vw, 70px) 48px;
+}
+
+.reader-modebar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 54px;
+  padding: 10px clamp(16px, 3vw, 34px) 8px;
+  border-bottom: 1px solid var(--reader-border);
+  background: color-mix(in srgb, var(--reader-card) 94%, transparent);
+}
+
+.reader-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .editor-scroll {
@@ -991,7 +1100,7 @@ button {
 
 .copilot-heading {
   gap: 9px;
-  padding: 22px 18px 17px;
+  padding: 16px 14px 12px;
   border-bottom: 1px solid var(--reader-border);
 }
 
@@ -1011,6 +1120,10 @@ button {
   margin-top: 3px;
   color: var(--reader-muted);
   font-size: 11px;
+}
+
+.copilot-heading .panel-collapse {
+  margin-left: auto;
 }
 
 .coming-badge {
@@ -1080,46 +1193,26 @@ button {
 
 @media (max-width: 1020px) {
   .workspace {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: var(--left-panel-width) 8px minmax(0, 1fr) 0 0;
   }
 
+  .panel-resizer[data-resizer="right"],
   .copilot-panel {
     display: none;
   }
 }
 
 @media (max-width: 680px) {
-  .topbar {
-    height: auto;
-    min-height: 66px;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-    padding: 13px 15px;
-  }
-
-  .top-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .status {
-    max-width: 40vw;
-  }
-
   .workspace {
-    display: block;
+    grid-template-columns: 38px 0 minmax(0, 1fr) 0 0;
   }
 
   .file-panel {
-    min-height: 220px;
-    max-height: 300px;
     border-right: 0;
-    border-bottom: 1px solid var(--reader-border);
   }
 
-  .reader-panel {
-    min-height: 600px;
+  .panel-resizer[data-resizer="left"] {
+    display: none;
   }
 
   .welcome-pane {
@@ -1127,19 +1220,15 @@ button {
     padding: 30px 18px;
   }
 
-  .reader-header {
-    padding: 18px 16px 15px;
-  }
-
-  .viewer-scroll {
-    max-height: none;
+  .viewer-scroll,
+  .editor-scroll {
     padding: 22px 16px 42px;
   }
 
   .bottom-bar {
-    height: auto;
-    min-height: 36px;
-    padding: 8px 14px;
-    line-height: 1.5;
+    height: 30px;
+    flex-basis: 30px;
+    padding: 0 12px;
+    line-height: 30px;
   }
 }

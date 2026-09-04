@@ -5,9 +5,10 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.5.1';
+const PLUGIN_VERSION = '0.6.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
+const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
 
 let sequence = 0;
 let activeMarkdownEditor = null;
@@ -146,9 +147,42 @@ const state = {
   busy: false,
   restoring: false,
   editing: false,
+  leftWidth: 254,
+  rightWidth: 288,
+  leftCollapsed: false,
+  rightCollapsed: false,
   status: '请选择一个文件夹开始阅读',
   error: '',
 };
+
+function readLayout() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(LAYOUT_STORAGE_KEY) || '{}');
+    return {
+      leftWidth: Math.min(420, Math.max(180, Number(value.leftWidth) || 254)),
+      rightWidth: Math.min(420, Math.max(220, Number(value.rightWidth) || 288)),
+      leftCollapsed: Boolean(value.leftCollapsed),
+      rightCollapsed: Boolean(value.rightCollapsed),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveLayout() {
+  try {
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({
+      leftWidth: state.leftWidth,
+      rightWidth: state.rightWidth,
+      leftCollapsed: state.leftCollapsed,
+      rightCollapsed: state.rightCollapsed,
+    }));
+  } catch {
+    // A restricted storage quota must never break the reader.
+  }
+}
+
+Object.assign(state, readLayout());
 
 function readSavedSession() {
   try {
@@ -815,16 +849,12 @@ function renderReaderPane() {
   }
 
   const current = state.current;
-  const title = escapeHtml(current.name);
   const language = languageLabel(current.language);
   if (state.editing) {
     const editorMarkup = current.language === 'markdown'
       ? '<div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div>'
       : `<textarea id="source-editor" class="source-editor" spellcheck="false" aria-label="${language} 源码编辑器"></textarea>`;
-    return `<div class="reader-header">
-      <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · ${current.language === 'markdown' ? '所见即所得' : '源码编辑'}</p></div></div>
-      <div class="reader-header-actions"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div>
-    </div>
+    return `<div class="reader-modebar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div></div>
     <div class="editor-scroll">${editorMarkup}</div>`;
   }
 
@@ -840,16 +870,16 @@ function renderReaderPane() {
     : '';
   const canEdit = !current.binary && (current.language !== 'markdown' || current.editable);
 
-  return `<div class="reader-header">
-    <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>
-    <div class="reader-header-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div>
-  </div>
+  return `<div class="reader-modebar"><div class="reader-mode-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div></div>
   <div class="viewer-scroll">${body}</div>`;
 }
 
 function renderCopilot() {
+  if (state.rightCollapsed) {
+    return '<aside class="copilot-panel is-collapsed"><button class="panel-collapse" data-action="toggle-right" title="展开阅读助手">‹</button></aside>';
+  }
   return `<aside class="copilot-panel">
-    <div class="copilot-heading"><span class="copilot-orb">✦</span><div><h2>Copilot</h2><p>阅读助手</p></div><span class="coming-badge">M1</span></div>
+    <div class="copilot-heading"><span class="copilot-orb">✦</span><div><h2>Copilot</h2><p>阅读助手</p></div><span class="coming-badge">M1</span><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
     <div class="copilot-empty">
       <div class="copilot-spark">✧</div>
       <h3>先读，再问</h3>
@@ -858,6 +888,34 @@ function renderCopilot() {
     <div class="copilot-rule"></div>
     <div class="copilot-note"><span>⌁</span> AI 上下文将由你明确选择，不默认读取整个项目。</div>
   </aside>`;
+}
+
+let resizeCleanup = null;
+
+function beginResize(side, event) {
+  event.preventDefault();
+  resizeCleanup?.();
+  const workspace = root.querySelector('.workspace');
+  if (!workspace) return;
+  const startX = event.clientX;
+  const startWidth = side === 'left' ? state.leftWidth : state.rightWidth;
+  const update = (moveEvent) => {
+    const delta = moveEvent.clientX - startX;
+    const width = side === 'left' ? startWidth + delta : startWidth - delta;
+    if (side === 'left') state.leftWidth = Math.min(420, Math.max(180, width));
+    else state.rightWidth = Math.min(420, Math.max(220, width));
+    workspace.style.setProperty(`--${side}-panel-width`, `${side === 'left' ? state.leftWidth : state.rightWidth}px`);
+  };
+  const finish = () => {
+    window.removeEventListener('pointermove', update);
+    window.removeEventListener('pointerup', finish);
+    resizeCleanup = null;
+    saveLayout();
+    render();
+  };
+  resizeCleanup = finish;
+  window.addEventListener('pointermove', update);
+  window.addEventListener('pointerup', finish, { once: true });
 }
 
 function render() {
@@ -873,21 +931,23 @@ function render() {
   collect(state.rootNode);
 
   root.innerHTML = `<div class="reader-app">
-    <header class="topbar">
-      <div class="brand"><span class="brand-mark">阅</span><div><strong>Hana Reader</strong><small>AI 产物审阅工作台 · v${PLUGIN_VERSION}</small></div></div>
-      <div class="top-actions"><span class="status ${state.error ? 'error' : ''}">${escapeHtml(state.error || state.status)}</span><button class="button ghost" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'}>↻ 刷新</button><button class="button primary" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''}>选择文件夹</button></div>
-    </header>
-    <div class="workspace">
-      <aside class="file-panel">
-        <div class="panel-heading"><div><span class="eyebrow">WORKSPACE</span><h2>项目文件</h2></div><span class="panel-count">${state.rootNode ? state.rootNode.items.length : '—'}</span></div>
+    <div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">
+      <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
+        <div class="panel-heading"><div><span class="eyebrow">WORKSPACE</span><h2>项目文件</h2></div><div class="panel-heading-actions"><span class="panel-count">${state.rootNode ? state.rootNode.items.length : '—'}</span><button class="panel-tool" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="刷新目录">↻</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹">＋</button><button class="panel-collapse" data-action="toggle-left" title="折叠文件树">‹</button></div></div>
         <div class="tree-scroll">${tree}</div>
-        <div class="file-panel-footer"><span class="legend-dot"></span> M0 只读模式</div>
+        <div class="file-panel-footer"><span class="legend-dot"></span> ResourceIO</div>
       </aside>
+      <div class="panel-resizer" data-resizer="left" role="separator" aria-label="调整文件树宽度"></div>
       <main class="reader-panel">${renderReaderPane()}</main>
+      <div class="panel-resizer" data-resizer="right" role="separator" aria-label="调整阅读助手宽度"></div>
       ${renderCopilot()}
     </div>
     <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>编辑自动保存 · 可回撤上一步</span></footer>
   </div>`;
+
+  root.querySelectorAll('[data-resizer]').forEach((element) => {
+    element.addEventListener('pointerdown', (event) => beginResize(element.dataset.resizer, event));
+  });
 
   root.querySelectorAll('[data-action]').forEach((element) => {
     element.addEventListener('click', () => {
@@ -897,6 +957,16 @@ function render() {
       if (action === 'refresh') requestTransition('刷新目录', refreshRoot);
       if (action === 'toggle') requestTransition(`切换到目录 ${node?.name || ''}`, () => toggleDirectory(node));
       if (action === 'open') requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
+      if (action === 'toggle-left') {
+        state.leftCollapsed = !state.leftCollapsed;
+        saveLayout();
+        render();
+      }
+      if (action === 'toggle-right') {
+        state.rightCollapsed = !state.rightCollapsed;
+        saveLayout();
+        render();
+      }
       if (action === 'edit-file') startEditing();
       if (action === 'read-mode') requestTransition('切换为只读', stopEditing);
       if (action === 'toggle-html-preview') {

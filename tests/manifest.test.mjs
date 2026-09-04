@@ -59,13 +59,18 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /const PLUGIN_VERSION = '0\.4\.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
-  assert.match(panelSource, /createLineDiff/);
+  assert.doesNotMatch(panelSource, /createLineDiff/);
+  assert.doesNotMatch(panelSource, /showEditorDiff/);
+  assert.match(panelSource, /scheduleAutoSave/);
   assert.match(panelSource, /undoLastWrite/);
   assert.match(panelSource, /source-editor/);
-  assert.match(panelSource, /reloadRemoteVersion/);
   assert.match(panelSource, /MAX_EDIT_BYTES = 512 \* 1024/);
   assert.match(panelSource, /超过 512 KB，仅只读预览/);
-  assert.match(panelSource, /尚未写回文件/);
+  assert.match(panelSource, /data-action="read-mode"/);
+  assert.match(panelSource, /只读/);
+  assert.match(panelSource, /编辑/);
+  assert.match(panelSource, /回撤/);
+  assert.match(panelSource, /编辑自动保存/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {

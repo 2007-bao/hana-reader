@@ -516,10 +516,32 @@ button {
   box-shadow: var(--reader-shadow);
   font: 13px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace;
   tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .source-editor:focus {
   border-color: color-mix(in srgb, var(--reader-accent) 58%, var(--reader-border));
+}
+
+.html-preview-wrap {
+  width: min(100%, 980px);
+  min-height: 520px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--reader-shadow);
+}
+
+.html-preview {
+  display: block;
+  width: 100%;
+  min-height: 520px;
+  border: 0;
+  background: #fff;
 }
 
 .markdown-editor {

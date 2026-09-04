@@ -5,7 +5,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.4.1';
+const PLUGIN_VERSION = '0.5.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
@@ -396,6 +396,14 @@ async function mountCurrentEditor() {
   const textarea = root.querySelector('#source-editor');
   if (!textarea) return;
   textarea.value = currentDraft();
+  textarea.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab') return;
+    event.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.setRangeText('  ', start, end, 'end');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   textarea.addEventListener('input', () => {
     if (!state.current || !state.editing) return;
     state.current.draftContent = textarea.value;
@@ -494,6 +502,7 @@ async function openFile(node, options = {}) {
       version: result.version || null,
       editable: inferLanguage(node.name) === 'markdown' && byteLength(result.content || '') <= MAX_EDIT_BYTES,
       baseSha256: await sha256Text(result.content || ''),
+      htmlPreview: false,
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
     };
     saveSession();
@@ -823,7 +832,9 @@ function renderReaderPane() {
     ? `<div class="binary-placeholder"><div class="placeholder-icon">◇</div><h3>暂不预览二进制文件</h3><p>当前阶段只面向文本与代码阅读。</p></div>`
     : current.language === 'markdown'
       ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
-      : renderCodeViewer(current.content, current.language);
+      : current.language === 'html' && current.htmlPreview
+        ? `<div class="html-preview-wrap"><iframe class="html-preview" sandbox title="安全 HTML 预览" srcdoc="${escapeHtml(current.content)}"></iframe></div>`
+        : renderCodeViewer(current.content, current.language);
   const editorAction = current.language === 'markdown' && !current.editable
     ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
     : '';
@@ -831,7 +842,7 @@ function renderReaderPane() {
 
   return `<div class="reader-header">
     <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>
-    <div class="reader-header-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div>
+    <div class="reader-header-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div>
   </div>
   <div class="viewer-scroll">${body}</div>`;
 }
@@ -888,6 +899,10 @@ function render() {
       if (action === 'open') requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
       if (action === 'edit-file') startEditing();
       if (action === 'read-mode') requestTransition('切换为只读', stopEditing);
+      if (action === 'toggle-html-preview') {
+        state.current.htmlPreview = !state.current.htmlPreview;
+        render();
+      }
       if (action === 'undo-write') undoLastWrite();
     });
   });

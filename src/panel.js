@@ -13,6 +13,7 @@ let sequence = 0;
 let activeMarkdownEditor = null;
 let pendingMarkdownEditor = null;
 let editorGeneration = 0;
+let autoSaveTimer = null;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -366,36 +367,9 @@ function updateEditorStatus() {
   }
 }
 
-function updateEditorDiff() {
-  const diff = root.querySelector('#editor-diff');
-  if (!diff || !state.current) return;
-  diff.textContent = createLineDiff(state.current.content, currentDraft());
-}
-
-function createLineDiff(before, after) {
-  const oldLines = String(before || '').replace(/\r\n?/g, '\n').split('\n');
-  const newLines = String(after || '').replace(/\r\n?/g, '\n').split('\n');
-  const rows = [];
-  const width = newLines.length;
-  let oldIndex = 0;
-  let newIndex = 0;
-  while (oldIndex < oldLines.length || newIndex < newLines.length) {
-    if (oldIndex < oldLines.length && newIndex < newLines.length && oldLines[oldIndex] === newLines[newIndex]) {
-      rows.push(`  ${oldLines[oldIndex]}`);
-      oldIndex += 1;
-      newIndex += 1;
-      continue;
-    }
-    if (oldIndex < oldLines.length) rows.push(`- ${oldLines[oldIndex++]}`);
-    if (newIndex < newLines.length) rows.push(`+ ${newLines[newIndex++]}`);
-  }
-  return rows.join('\n') || '没有检测到修改。';
-}
-
 async function mountCurrentEditor() {
   if (!state.current || !state.editing) return;
   updateEditorStatus();
-  updateEditorDiff();
   if (state.current.language === 'markdown') {
     const generation = ++editorGeneration;
     const session = state.current;
@@ -405,7 +379,7 @@ async function mountCurrentEditor() {
         state.current.draftContent = markdown;
         state.current.draftDirty = markdown !== state.current.content;
         updateEditorStatus();
-        updateEditorDiff();
+        scheduleAutoSave();
       },
     });
     pendingMarkdownEditor = promise;
@@ -427,7 +401,7 @@ async function mountCurrentEditor() {
     state.current.draftContent = textarea.value;
     state.current.draftDirty = textarea.value !== state.current.content;
     updateEditorStatus();
-    updateEditorDiff();
+    scheduleAutoSave();
   });
 }
 
@@ -671,7 +645,6 @@ async function startEditing() {
   state.editing = true;
   state.current.draftContent = state.current.content;
   state.current.draftDirty = false;
-  state.current.diffVisible = false;
   state.current.conflict = null;
   render();
 
@@ -687,101 +660,104 @@ async function startEditing() {
 
 let pendingTransition = null;
 
-function requestTransition(label, transition) {
+function scheduleAutoSave() {
+  window.clearTimeout(autoSaveTimer);
+  if (!state.current?.draftDirty || !state.editing) return;
+  autoSaveTimer = window.setTimeout(() => {
+    autoSaveTimer = null;
+    saveCurrent({ preserveEditor: true });
+  }, 500);
+}
+
+async function flushAutoSave() {
+  window.clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+  if (state.editing && state.current?.draftDirty) {
+    await saveCurrent({ preserveEditor: true });
+  }
+}
+
+function requestTransition(_label, transition) {
   const runTransition = async () => {
     if (state.editing) {
+      await flushAutoSave();
+      if (state.current?.draftDirty || state.busy) return;
       await destroyMarkdownEditor();
       state.editing = false;
     }
     await transition();
   };
-  if (state.editing && state.current?.draftDirty) {
-    pendingTransition = runTransition;
-    const existing = root.querySelector('#dirty-guard');
-    if (existing) existing.remove();
-    root.insertAdjacentHTML('beforeend', `<div id="dirty-guard" class="dirty-guard" role="dialog" aria-modal="true"><div class="dirty-guard-card"><strong>本地修改尚未写回</strong><p>${escapeHtml(label)}会丢弃当前草稿。请先查看 Diff 并写回，或明确放弃修改。</p><div class="dirty-guard-actions"><button class="button ghost" data-guard-action="cancel">取消</button><button class="button danger" data-guard-action="discard">放弃并继续</button></div></div></div>`);
-    root.querySelector('[data-guard-action="cancel"]')?.addEventListener('click', () => {
-      pendingTransition = null;
-      root.querySelector('#dirty-guard')?.remove();
-    });
-    root.querySelector('[data-guard-action="discard"]')?.addEventListener('click', async () => {
-      const next = pendingTransition;
-      pendingTransition = null;
-      root.querySelector('#dirty-guard')?.remove();
-      if (next) await next();
-    });
-    return;
-  }
-  runTransition();
+  pendingTransition = runTransition;
+  runTransition().finally(() => {
+    if (pendingTransition === runTransition) pendingTransition = null;
+  });
 }
 
 async function stopEditing() {
+  await flushAutoSave();
+  if (state.current?.draftDirty || state.busy) return;
   await destroyMarkdownEditor();
   state.editing = false;
   if (state.current) {
     delete state.current.draftContent;
     delete state.current.draftDirty;
-    delete state.current.diffVisible;
     delete state.current.conflict;
   }
   render();
 }
 
-async function showEditorDiff() {
-  if (!state.current || state.busy) return;
-  await destroyMarkdownEditor();
-  state.current.diffVisible = !state.current.diffVisible;
-  render();
-  await mountCurrentEditor();
-}
-
-async function saveCurrent() {
+async function saveCurrent({ preserveEditor = false } = {}) {
   if (!state.current || state.busy || !state.current.draftDirty) return;
-  if (!state.current.diffVisible) {
-    await showEditorDiff();
-    return;
-  }
 
   state.busy = true;
   state.error = '';
-  state.status = `正在安全写回 ${state.current.name}…`;
-  render();
+  state.status = `正在自动保存 ${state.current.name}…`;
+  if (!preserveEditor) render();
   try {
     const current = state.current;
     const draft = currentDraft();
-    const result = await apiJson('resources/write', {
-      resource: current.node.resource,
-      content: draft,
-      expectedVersion: current.version,
-      baseSha256: current.baseSha256,
-    });
+    let result;
+    try {
+      result = await apiJson('resources/write', {
+        resource: current.node.resource,
+        content: draft,
+        expectedVersion: current.version,
+        baseSha256: current.baseSha256,
+      });
+    } catch (error) {
+      if (error.status !== 409 || !error.payload?.conflict || !error.payload.version) throw error;
+      // Overwrite semantics: use the latest remote baseline and retry once.
+      current.version = error.payload.version;
+      current.baseSha256 = error.payload.sha256 || await sha256Text(error.payload.content || '');
+      result = await apiJson('resources/write', {
+        resource: current.node.resource,
+        content: draft,
+        expectedVersion: current.version,
+        baseSha256: current.baseSha256,
+      });
+      state.status = '已覆盖外部修改并自动保存';
+    }
     current.undo = { content: current.content, version: result.version };
     current.content = draft;
     current.draftContent = draft;
     current.draftDirty = false;
-    current.diffVisible = false;
     current.conflict = null;
     current.version = result.version || current.version;
     current.baseSha256 = result.sha256 || await sha256Text(current.content);
-    state.status = `${languageLabel(current.language)} · 已安全写回`;
+    state.status = `${languageLabel(current.language)} · 已自动保存`;
   } catch (error) {
-    if (error.status === 409 && error.payload?.conflict) {
-      state.current.conflict = {
-        content: error.payload.content || '',
-        version: error.payload.version || null,
-        sha256: error.payload.sha256 || null,
-      };
-      state.current.diffVisible = true;
-      state.status = '检测到外部修改，请先处理冲突';
-    } else {
-      state.error = error instanceof Error ? error.message : String(error);
-      state.status = '写回失败';
-    }
+    state.error = error instanceof Error ? error.message : String(error);
+    state.status = '自动保存失败，请重试';
   } finally {
     state.busy = false;
-    await destroyMarkdownEditor();
-    render();
-    await mountCurrentEditor();
+    updateEditorStatus();
+    if (!preserveEditor) {
+      await destroyMarkdownEditor();
+      render();
+      await mountCurrentEditor();
+    } else if (state.current?.draftDirty) {
+      scheduleAutoSave();
+    }
   }
 }
 
@@ -818,22 +794,6 @@ async function undoLastWrite() {
   }
 }
 
-async function reloadRemoteVersion() {
-  const current = state.current;
-  if (!current?.conflict || state.busy) return;
-  await destroyMarkdownEditor();
-  current.content = current.conflict.content;
-  current.version = current.conflict.version;
-  current.baseSha256 = current.conflict.sha256 || await sha256Text(current.content);
-  current.draftContent = current.content;
-  current.draftDirty = false;
-  current.conflict = null;
-  current.diffVisible = false;
-  state.status = `${languageLabel(current.language)} · 已载入远端版本`;
-  render();
-  await mountCurrentEditor();
-}
-
 function renderReaderPane() {
   if (!state.current) {
     return `<div class="welcome-pane">
@@ -852,18 +812,11 @@ function renderReaderPane() {
     const editorMarkup = current.language === 'markdown'
       ? '<div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div>'
       : `<textarea id="source-editor" class="source-editor" spellcheck="false" aria-label="${language} 源码编辑器"></textarea>`;
-    const conflictMarkup = current.conflict
-      ? '<div class="conflict-notice"><strong>远端文件已变化</strong><span>为避免覆盖他人修改，本次写回已停止。</span><button class="button ghost" data-action="reload-remote">载入远端版本</button></div>'
-      : '';
-    const diffMarkup = current.diffVisible
-      ? `<details class="diff-panel" open><summary>修改 Diff（写回前预览）</summary><pre id="editor-diff"></pre>${current.conflict ? `<div class="remote-diff"><strong>远端当前版本</strong><pre>${escapeHtml(createLineDiff(current.content, current.conflict.content))}</pre></div>` : ''}</details>`
-      : '';
     return `<div class="reader-header">
       <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · ${current.language === 'markdown' ? '所见即所得' : '源码编辑'}</p></div></div>
-      <div class="reader-header-actions"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><button class="button ghost" data-action="show-diff">${current.diffVisible ? '收起 Diff' : '查看 Diff'}</button>${current.draftDirty && current.diffVisible && !current.conflict ? '<button class="button primary" data-action="save-file">确认写回</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">撤销上次写回</button>' : ''}<button class="button ghost" data-action="exit-editor">退出编辑</button></div>
+      <div class="reader-header-actions"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div>
     </div>
-    ${conflictMarkup}
-    <div class="editor-scroll">${editorMarkup}${diffMarkup}</div>`;
+    <div class="editor-scroll">${editorMarkup}</div>`;
   }
 
   const body = current.binary
@@ -871,15 +824,14 @@ function renderReaderPane() {
     : current.language === 'markdown'
       ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
       : renderCodeViewer(current.content, current.language);
-  const editorAction = current.language === 'markdown' && current.editable
-    ? '<button class="button ghost" data-action="edit-file">所见即所得编辑</button>'
-    : current.language === 'markdown'
-      ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
-      : '<button class="button ghost" data-action="edit-file">编辑源码</button>';
+  const editorAction = current.language === 'markdown' && !current.editable
+    ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
+    : '';
+  const canEdit = !current.binary && (current.language !== 'markdown' || current.editable);
 
   return `<div class="reader-header">
     <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>
-    <div class="reader-header-actions">${editorAction}<span class="read-only-badge">READ ONLY</span></div>
+    <div class="reader-header-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div>
   </div>
   <div class="viewer-scroll">${body}</div>`;
 }
@@ -923,7 +875,7 @@ function render() {
       <main class="reader-panel">${renderReaderPane()}</main>
       ${renderCopilot()}
     </div>
-    <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>S2 所见即所得编辑预览 · 尚未写回文件</span></footer>
+    <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>编辑自动保存 · 可回撤上一步</span></footer>
   </div>`;
 
   root.querySelectorAll('[data-action]').forEach((element) => {
@@ -935,11 +887,8 @@ function render() {
       if (action === 'toggle') requestTransition(`切换到目录 ${node?.name || ''}`, () => toggleDirectory(node));
       if (action === 'open') requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
       if (action === 'edit-file') startEditing();
-      if (action === 'exit-editor') requestTransition('退出编辑', stopEditing);
-      if (action === 'show-diff') showEditorDiff();
-      if (action === 'save-file') saveCurrent();
+      if (action === 'read-mode') requestTransition('切换为只读', stopEditing);
       if (action === 'undo-write') undoLastWrite();
-      if (action === 'reload-remote') requestTransition('载入远端版本', reloadRemoteVersion);
     });
   });
 

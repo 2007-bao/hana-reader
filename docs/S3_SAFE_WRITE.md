@@ -9,7 +9,8 @@ S3 对 Markdown、Python、JSON、HTML、CSS、JavaScript、TypeScript、YAML、
 1. `/resources/read` 返回 `resource` 与 `version`，前端将其作为编辑基线。
 2. `/resources/write` 必须同时接收 `resource`、完整 `content` 与 `expectedVersion`。
 3. 服务端调用 `ctx.resources.writeExpectedVersion`，版本不一致时返回 `409`，并附带最新远端文本与版本。
-4. 客户端先展示本地与远端 Diff，不自动覆盖远端内容。
+4. 客户端采用“只读 / 编辑”双状态；编辑中的修改经过短暂防抖后自动写回，不再要求单独确认保存或查看 Diff。
+5. 若远端已变化，客户端刷新远端版本后自动重试一次，以用户确认的覆盖语义完成写回。
 
 ## 撤销
 
@@ -19,6 +20,7 @@ S3 对 Markdown、Python、JSON、HTML、CSS、JavaScript、TypeScript、YAML、
 
 - `resource.write` 是 S3 新增的最小权限；仍不允许浏览器直接访问本地路径。
 - 单次写回不超过 2 MB；Markdown 超过 512 KB 不进入编辑态。
-- 写回前必须查看 Diff 并显式确认。
-- 冲突时只能载入远端版本或退出，不能静默合并。
+- 编辑状态只有“只读”和“编辑”两个入口；编辑状态下修改自动保存。
+- 提供“回撤”按钮，将当前文件恢复到上一次成功写回前的内容。
+- 外部修改时按当前产品决策覆盖远端，不提供额外 Diff 审阅环节。
 - 文件类型不决定写回权限，统一按文本内容处理；二进制文件不提供编辑入口。

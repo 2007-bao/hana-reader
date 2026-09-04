@@ -124,5 +124,7 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /font-family: "Maple Mono"/);
   assert.match(css, /--maple-purple/);
   assert.match(css, /--reader-code-string: var\(--maple-green\)/);
+  assert.match(css, /body\[data-hana-theme="dark"\]/);
+  assert.match(css, /--reader-code-keyword: var\(--maple-purple\)/);
   assert.match(css, /\.markdown-body \.hljs-string/);
 });

@@ -58,6 +58,12 @@ body[data-hana-theme="dark"] {
   --maple-cyan: hsl(178 40% 64%);
   --maple-blue: hsl(210 80% 72%);
   --maple-purple: hsl(247 65% 82%);
+  --reader-code-keyword: var(--maple-purple);
+  --reader-code-string: var(--maple-green);
+  --reader-code-comment: var(--maple-gray);
+  --reader-code-number: var(--maple-cyan);
+  --reader-code-title: var(--maple-blue);
+  --reader-code-attr: var(--maple-yellow);
 }
 
 * {

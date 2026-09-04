@@ -14,7 +14,7 @@ test('manifest declares a full-access reader page with read-only resource access
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.3');
+  assert.equal(manifest.version, '0.1.4');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -56,4 +56,17 @@ test('reader persists and restores the last workspace, file, and scroll position
   assert.match(panel, /scrollTop: state\.current\?\.scrollTop/);
   assert.match(panel, /viewer\.addEventListener\('scroll'/);
   assert.match(panel, /restoreSession\(\);/);
+});
+
+test('Markdown reader supports common GFM reading elements with safe external links', async () => {
+  const panel = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+  const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
+
+  assert.match(panel, /parseMarkdownTableRow/);
+  assert.match(panel, /task-item/);
+  assert.match(panel, /safeMarkdownUrl/);
+  assert.match(panel, /noopener noreferrer/);
+  assert.match(panel, /output\.push\('<hr>'\)/);
+  assert.match(css, /\.markdown-table-wrap/);
+  assert.match(css, /\.task-item/);
 });

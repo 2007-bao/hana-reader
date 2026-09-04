@@ -916,5 +916,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.8' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.9' });
 restoreSession();

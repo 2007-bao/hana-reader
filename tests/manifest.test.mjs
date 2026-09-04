@@ -14,7 +14,7 @@ test('manifest declares a full-access reader page with read-only resource access
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.8');
+  assert.equal(manifest.version, '0.1.9');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');

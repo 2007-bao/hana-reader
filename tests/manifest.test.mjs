@@ -14,7 +14,7 @@ test('manifest declares a full-access reader page with read-only resource access
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.9');
+  assert.equal(manifest.version, '0.1.10');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -74,5 +74,7 @@ test('Markdown reader supports common GFM reading elements with safe external li
   assert.match(css, /\.markdown-table-wrap/);
   assert.match(css, /\.task-item/);
   assert.match(css, /\.markdown-code \{/);
+  assert.match(css, /\.markdown-body \{[\s\S]*?font-style: normal;/);
+  assert.match(css, /\.markdown-body h1,[\s\S]*?font-style: normal;/);
   assert.match(css, /\.token-comment \{[\s\S]*?color: #87968e;/);
 });

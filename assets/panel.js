@@ -702,4 +702,4 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.1' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.2' });

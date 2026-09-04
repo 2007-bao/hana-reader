@@ -49,7 +49,13 @@ export default function registerPluginUiRoutes(app, ctx) {
 function renderShell(c, ctx) {
   const hanaCss = c.req.query('hana-css') || '';
   const theme = c.req.query('hana-theme') || 'inherit';
+  const token = c.req.query('token') || '';
   const assetBase = `/api/plugins/${encodeURIComponent(ctx.pluginId)}/assets`;
+  const withToken = (url) => token
+    ? `${url}?${new URLSearchParams({ token }).toString()}`
+    : url;
+  const panelCss = withToken(`${assetBase}/panel.css`);
+  const panelJs = withToken(`${assetBase}/panel.js`);
   const title = 'Hana Reader';
 
   return `<!doctype html>
@@ -59,7 +65,7 @@ function renderShell(c, ctx) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)}</title>
   ${hanaCss ? `<link rel="stylesheet" href="${escapeAttr(hanaCss)}">` : ''}
-  <link rel="stylesheet" href="${assetBase}/panel.css">
+  <link rel="stylesheet" href="${escapeAttr(panelCss)}">
 </head>
 <body data-hana-theme="${escapeAttr(theme)}" data-surface="page">
   <div id="root" data-surface="page"><div style="display:grid;place-items:center;min-height:100vh;color:#7c8790;font:13px system-ui,sans-serif">正在加载 Hana Reader…</div></div>
@@ -76,7 +82,7 @@ function renderShell(c, ctx) {
       root.innerHTML = '<div style="display:grid;place-items:center;min-height:100vh;color:#b35b5b;font:13px system-ui,sans-serif;text-align:center;padding:24px">面板加载失败：' + String(reason).replace(/[<>&]/g, '') + '</div>';
     });
   </script>
-  <script type="module" src="${assetBase}/panel.js"></script>
+  <script type="module" src="${escapeAttr(panelJs)}"></script>
 </body>
 </html>`;
 }

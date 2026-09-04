@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
 
-> 当前版本：`0.1.2` · M0 只读证明
+> 当前版本：`0.1.2` · M0 只读大版本已验收
 
 ## 当前目标
 
@@ -30,6 +30,8 @@
 
 也可以把插件文件夹拖入 Hana 设置 → 插件进行本地安装。
 
+页面加载、鉴权与空白页排查记录见 [`docs/PLUGIN_LOADING.md`](docs/PLUGIN_LOADING.md)。
+
 ## 目录结构
 
 ```text
@@ -39,7 +41,7 @@ assets/             iframe 页面静态资源
   panel.js          M0 阅读器界面
   panel.css         Hana 风格界面样式
   hana-bridge.js    当前 M0 所需的轻量 SDK 协议适配
- tests/              manifest 与结构测试
+tests/               manifest 与结构测试
 COLLABORATION.md    GitHub 协作约定
 ```
 

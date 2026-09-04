@@ -5,12 +5,14 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.3.1';
+const PLUGIN_VERSION = '0.4.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
 let sequence = 0;
 let activeMarkdownEditor = null;
+let pendingMarkdownEditor = null;
+let editorGeneration = 0;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -252,6 +254,13 @@ function byteLength(value) {
   }
 }
 
+async function sha256Text(value) {
+  const bytes = new TextEncoder().encode(String(value || ''));
+  if (!globalThis.crypto?.subtle) throw new Error('当前环境不支持安全写回校验。');
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function formatSize(size) {
   if (size === null || size === undefined || Number.isNaN(Number(size))) return '';
   const value = Number(size);
@@ -316,16 +325,110 @@ async function apiJson(path, body) {
   }
 
   if (!response.ok) {
-    throw new Error(payload?.error || `资源请求失败（${response.status}）`);
+    const error = new Error(payload?.error || `资源请求失败（${response.status}）`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
   return payload;
 }
 
 async function destroyMarkdownEditor() {
-  if (!activeMarkdownEditor) return;
-  const editor = activeMarkdownEditor;
+  editorGeneration += 1;
+  const active = activeMarkdownEditor;
   activeMarkdownEditor = null;
-  await editor.destroy();
+  if (active) await active.destroy();
+  const pending = pendingMarkdownEditor;
+  if (pending) {
+    try {
+      const editor = await pending;
+      if (editor) await editor.destroy();
+    } catch {
+      // The caller that started the mount reports initialization failures.
+    }
+  }
+}
+
+function currentDraft() {
+  if (!state.current) return '';
+  return state.current.draftContent ?? state.current.content;
+}
+
+function updateEditorStatus() {
+  const status = root.querySelector('#editor-status');
+  if (!status || !state.current) return;
+  if (state.current.conflict) {
+    status.textContent = '检测到外部修改 · 尚未写回';
+  } else if (state.current.draftDirty) {
+    status.textContent = '本地草稿 · 尚未写回';
+  } else {
+    status.textContent = '编辑中 · 未修改';
+  }
+}
+
+function updateEditorDiff() {
+  const diff = root.querySelector('#editor-diff');
+  if (!diff || !state.current) return;
+  diff.textContent = createLineDiff(state.current.content, currentDraft());
+}
+
+function createLineDiff(before, after) {
+  const oldLines = String(before || '').replace(/\r\n?/g, '\n').split('\n');
+  const newLines = String(after || '').replace(/\r\n?/g, '\n').split('\n');
+  const rows = [];
+  const width = newLines.length;
+  let oldIndex = 0;
+  let newIndex = 0;
+  while (oldIndex < oldLines.length || newIndex < newLines.length) {
+    if (oldIndex < oldLines.length && newIndex < newLines.length && oldLines[oldIndex] === newLines[newIndex]) {
+      rows.push(`  ${oldLines[oldIndex]}`);
+      oldIndex += 1;
+      newIndex += 1;
+      continue;
+    }
+    if (oldIndex < oldLines.length) rows.push(`- ${oldLines[oldIndex++]}`);
+    if (newIndex < newLines.length) rows.push(`+ ${newLines[newIndex++]}`);
+  }
+  return rows.join('\n') || '没有检测到修改。';
+}
+
+async function mountCurrentEditor() {
+  if (!state.current || !state.editing) return;
+  updateEditorStatus();
+  updateEditorDiff();
+  if (state.current.language === 'markdown') {
+    const generation = ++editorGeneration;
+    const session = state.current;
+    const promise = mountMarkdownEditor(root.querySelector('#markdown-editor'), currentDraft(), {
+      onMarkdownChange(markdown) {
+        if (generation !== editorGeneration || state.current !== session || !state.editing) return;
+        state.current.draftContent = markdown;
+        state.current.draftDirty = markdown !== state.current.content;
+        updateEditorStatus();
+        updateEditorDiff();
+      },
+    });
+    pendingMarkdownEditor = promise;
+    try {
+      const editor = await promise;
+      if (generation !== editorGeneration || state.current !== session || !state.editing) return;
+      activeMarkdownEditor = editor;
+    } finally {
+      if (pendingMarkdownEditor === promise) pendingMarkdownEditor = null;
+    }
+    return;
+  }
+
+  const textarea = root.querySelector('#source-editor');
+  if (!textarea) return;
+  textarea.value = currentDraft();
+  textarea.addEventListener('input', () => {
+    if (!state.current || !state.editing) return;
+    state.current.draftContent = textarea.value;
+    state.current.draftDirty = textarea.value !== state.current.content;
+    updateEditorStatus();
+    updateEditorDiff();
+  });
 }
 
 async function chooseFolder() {
@@ -416,6 +519,7 @@ async function openFile(node, options = {}) {
       content: result.content || '',
       version: result.version || null,
       editable: inferLanguage(node.name) === 'markdown' && byteLength(result.content || '') <= MAX_EDIT_BYTES,
+      baseSha256: await sha256Text(result.content || ''),
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
     };
     saveSession();
@@ -562,23 +666,17 @@ function renderCodeViewer(content, language) {
     <div class="code-line"><span class="line-number">${index + 1}</span><code>${highlightCode(line, language)}</code></div>`).join('')}</div>`;
 }
 
-async function startMarkdownEditing() {
-  if (!state.current || state.current.language !== 'markdown' || !state.current.editable || state.editing || state.busy) return;
+async function startEditing() {
+  if (!state.current || state.current.binary || state.editing || state.busy) return;
   state.editing = true;
-  state.current.draftMarkdown = state.current.content;
+  state.current.draftContent = state.current.content;
   state.current.draftDirty = false;
+  state.current.diffVisible = false;
+  state.current.conflict = null;
   render();
 
   try {
-    activeMarkdownEditor = await mountMarkdownEditor(root.querySelector('#markdown-editor'), state.current.content, {
-      onMarkdownChange(markdown) {
-        if (!state.current || !state.editing) return;
-        state.current.draftMarkdown = markdown;
-        state.current.draftDirty = markdown !== state.current.content;
-        const status = root.querySelector('#markdown-editor-status');
-        if (status) status.textContent = state.current.draftDirty ? '本地草稿 · 尚未写回' : '本地编辑预览 · 未修改';
-      },
-    });
+    await mountCurrentEditor();
   } catch (error) {
     activeMarkdownEditor = null;
     state.editing = false;
@@ -587,14 +685,153 @@ async function startMarkdownEditing() {
   }
 }
 
-async function stopMarkdownEditing() {
+let pendingTransition = null;
+
+function requestTransition(label, transition) {
+  const runTransition = async () => {
+    if (state.editing) {
+      await destroyMarkdownEditor();
+      state.editing = false;
+    }
+    await transition();
+  };
+  if (state.editing && state.current?.draftDirty) {
+    pendingTransition = runTransition;
+    const existing = root.querySelector('#dirty-guard');
+    if (existing) existing.remove();
+    root.insertAdjacentHTML('beforeend', `<div id="dirty-guard" class="dirty-guard" role="dialog" aria-modal="true"><div class="dirty-guard-card"><strong>本地修改尚未写回</strong><p>${escapeHtml(label)}会丢弃当前草稿。请先查看 Diff 并写回，或明确放弃修改。</p><div class="dirty-guard-actions"><button class="button ghost" data-guard-action="cancel">取消</button><button class="button danger" data-guard-action="discard">放弃并继续</button></div></div></div>`);
+    root.querySelector('[data-guard-action="cancel"]')?.addEventListener('click', () => {
+      pendingTransition = null;
+      root.querySelector('#dirty-guard')?.remove();
+    });
+    root.querySelector('[data-guard-action="discard"]')?.addEventListener('click', async () => {
+      const next = pendingTransition;
+      pendingTransition = null;
+      root.querySelector('#dirty-guard')?.remove();
+      if (next) await next();
+    });
+    return;
+  }
+  runTransition();
+}
+
+async function stopEditing() {
   await destroyMarkdownEditor();
   state.editing = false;
   if (state.current) {
-    delete state.current.draftMarkdown;
+    delete state.current.draftContent;
     delete state.current.draftDirty;
+    delete state.current.diffVisible;
+    delete state.current.conflict;
   }
   render();
+}
+
+async function showEditorDiff() {
+  if (!state.current || state.busy) return;
+  await destroyMarkdownEditor();
+  state.current.diffVisible = !state.current.diffVisible;
+  render();
+  await mountCurrentEditor();
+}
+
+async function saveCurrent() {
+  if (!state.current || state.busy || !state.current.draftDirty) return;
+  if (!state.current.diffVisible) {
+    await showEditorDiff();
+    return;
+  }
+
+  state.busy = true;
+  state.error = '';
+  state.status = `正在安全写回 ${state.current.name}…`;
+  render();
+  try {
+    const current = state.current;
+    const draft = currentDraft();
+    const result = await apiJson('resources/write', {
+      resource: current.node.resource,
+      content: draft,
+      expectedVersion: current.version,
+      baseSha256: current.baseSha256,
+    });
+    current.undo = { content: current.content, version: result.version };
+    current.content = draft;
+    current.draftContent = draft;
+    current.draftDirty = false;
+    current.diffVisible = false;
+    current.conflict = null;
+    current.version = result.version || current.version;
+    current.baseSha256 = result.sha256 || await sha256Text(current.content);
+    state.status = `${languageLabel(current.language)} · 已安全写回`;
+  } catch (error) {
+    if (error.status === 409 && error.payload?.conflict) {
+      state.current.conflict = {
+        content: error.payload.content || '',
+        version: error.payload.version || null,
+        sha256: error.payload.sha256 || null,
+      };
+      state.current.diffVisible = true;
+      state.status = '检测到外部修改，请先处理冲突';
+    } else {
+      state.error = error instanceof Error ? error.message : String(error);
+      state.status = '写回失败';
+    }
+  } finally {
+    state.busy = false;
+    await destroyMarkdownEditor();
+    render();
+    await mountCurrentEditor();
+  }
+}
+
+async function undoLastWrite() {
+  const current = state.current;
+  if (!current?.undo || state.busy) return;
+  state.busy = true;
+  state.error = '';
+  state.status = `正在撤销 ${current.name}…`;
+  render();
+  try {
+    const result = await apiJson('resources/write', {
+      resource: current.node.resource,
+      content: current.undo.content,
+      expectedVersion: current.version,
+      baseSha256: current.baseSha256,
+    });
+    current.content = current.undo.content;
+    current.draftContent = current.content;
+    current.draftDirty = false;
+    current.version = result.version || current.version;
+    current.baseSha256 = result.sha256 || await sha256Text(current.content);
+    current.undo = null;
+    current.conflict = null;
+    state.status = `${languageLabel(current.language)} · 已撤销上次写回`;
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+    state.status = error.status === 409 ? '撤销遇到外部修改，未覆盖远端内容' : '撤销失败';
+  } finally {
+    state.busy = false;
+    await destroyMarkdownEditor();
+    render();
+    await mountCurrentEditor();
+  }
+}
+
+async function reloadRemoteVersion() {
+  const current = state.current;
+  if (!current?.conflict || state.busy) return;
+  await destroyMarkdownEditor();
+  current.content = current.conflict.content;
+  current.version = current.conflict.version;
+  current.baseSha256 = current.conflict.sha256 || await sha256Text(current.content);
+  current.draftContent = current.content;
+  current.draftDirty = false;
+  current.conflict = null;
+  current.diffVisible = false;
+  state.status = `${languageLabel(current.language)} · 已载入远端版本`;
+  render();
+  await mountCurrentEditor();
 }
 
 function renderReaderPane() {
@@ -611,12 +848,22 @@ function renderReaderPane() {
   const current = state.current;
   const title = escapeHtml(current.name);
   const language = languageLabel(current.language);
-  if (current.language === 'markdown' && current.editable && state.editing) {
+  if (state.editing) {
+    const editorMarkup = current.language === 'markdown'
+      ? '<div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div>'
+      : `<textarea id="source-editor" class="source-editor" spellcheck="false" aria-label="${language} 源码编辑器"></textarea>`;
+    const conflictMarkup = current.conflict
+      ? '<div class="conflict-notice"><strong>远端文件已变化</strong><span>为避免覆盖他人修改，本次写回已停止。</span><button class="button ghost" data-action="reload-remote">载入远端版本</button></div>'
+      : '';
+    const diffMarkup = current.diffVisible
+      ? `<details class="diff-panel" open><summary>修改 Diff（写回前预览）</summary><pre id="editor-diff"></pre>${current.conflict ? `<div class="remote-diff"><strong>远端当前版本</strong><pre>${escapeHtml(createLineDiff(current.content, current.conflict.content))}</pre></div>` : ''}</details>`
+      : '';
     return `<div class="reader-header">
-      <div class="file-heading"><span class="file-kind">M↓</span><div><h2>${title}</h2><p>${language} · 所见即所得编辑预览</p></div></div>
-      <div class="reader-header-actions"><span id="markdown-editor-status" class="editor-status">本地编辑预览 · 未修改</span><button class="button ghost" data-action="exit-markdown">退出编辑</button></div>
+      <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · ${current.language === 'markdown' ? '所见即所得' : '源码编辑'}</p></div></div>
+      <div class="reader-header-actions"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><button class="button ghost" data-action="show-diff">${current.diffVisible ? '收起 Diff' : '查看 Diff'}</button>${current.draftDirty && current.diffVisible && !current.conflict ? '<button class="button primary" data-action="save-file">确认写回</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">撤销上次写回</button>' : ''}<button class="button ghost" data-action="exit-editor">退出编辑</button></div>
     </div>
-    <div class="editor-scroll"><div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div></div>`;
+    ${conflictMarkup}
+    <div class="editor-scroll">${editorMarkup}${diffMarkup}</div>`;
   }
 
   const body = current.binary
@@ -625,10 +872,10 @@ function renderReaderPane() {
       ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
       : renderCodeViewer(current.content, current.language);
   const editorAction = current.language === 'markdown' && current.editable
-    ? '<button class="button ghost" data-action="edit-markdown">所见即所得编辑</button>'
+    ? '<button class="button ghost" data-action="edit-file">所见即所得编辑</button>'
     : current.language === 'markdown'
       ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
-      : '';
+      : '<button class="button ghost" data-action="edit-file">编辑源码</button>';
 
   return `<div class="reader-header">
     <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>
@@ -683,12 +930,16 @@ function render() {
     element.addEventListener('click', () => {
       const action = element.dataset.action;
       const node = nodeIndex.get(element.dataset.nodeId);
-      if (action === 'pick') chooseFolder();
-      if (action === 'refresh') refreshRoot();
-      if (action === 'toggle') toggleDirectory(node);
-      if (action === 'open') openFile(node);
-      if (action === 'edit-markdown') startMarkdownEditing();
-      if (action === 'exit-markdown') stopMarkdownEditing();
+      if (action === 'pick') requestTransition('重新选择文件夹', chooseFolder);
+      if (action === 'refresh') requestTransition('刷新目录', refreshRoot);
+      if (action === 'toggle') requestTransition(`切换到目录 ${node?.name || ''}`, () => toggleDirectory(node));
+      if (action === 'open') requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
+      if (action === 'edit-file') startEditing();
+      if (action === 'exit-editor') requestTransition('退出编辑', stopEditing);
+      if (action === 'show-diff') showEditorDiff();
+      if (action === 'save-file') saveCurrent();
+      if (action === 'undo-write') undoLastWrite();
+      if (action === 'reload-remote') requestTransition('载入远端版本', reloadRemoteVersion);
     });
   });
 

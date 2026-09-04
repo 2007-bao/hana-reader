@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
+
 const MAX_READ_BYTES = 2 * 1024 * 1024;
-const ASSET_REVISION = '0.3.1';
+const ASSET_REVISION = '0.4.0';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));
@@ -21,6 +23,56 @@ export default function registerPluginUiRoutes(app, ctx) {
     }
   });
 
+  app.post('/resources/write', async (c) => {
+    try {
+      const input = await c.req.json();
+      const resource = validateResource(input?.resource);
+      if (typeof input?.content !== 'string') throw new Error('Text content is required.');
+      const contentBytes = new TextEncoder().encode(input.content).byteLength;
+      if (contentBytes > MAX_READ_BYTES) {
+        return c.json({ error: `文件超过 2 MB 写入上限（${contentBytes} bytes）。` }, 413);
+      }
+      if (!hasVersionField(input.expectedVersion)) {
+        return c.json({ error: 'A non-empty expectedVersion is required for a safe write.' }, 400);
+      }
+      if (typeof input.baseSha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(input.baseSha256)) {
+        return c.json({ error: 'A baseSha256 is required for a safe write.' }, 400);
+      }
+      const pluginCtx = c.get('pluginCtx') || ctx;
+      const latest = await pluginCtx.resources.read(resource);
+      const latestBytes = toUint8Array(latest.content);
+      const latestContent = latestBytes.subarray(0, 8192).includes(0) ? null : new TextDecoder().decode(latestBytes);
+      if (latestContent === null || sha256(latestBytes) !== input.baseSha256) {
+        return c.json({
+          conflict: true,
+          version: latest.version || null,
+          sha256: sha256(latestBytes),
+          content: latestContent,
+        }, 409);
+      }
+      const result = await pluginCtx.resources.writeExpectedVersion(
+        resource,
+        input.content,
+        input.expectedVersion,
+        { purpose: 'hana-reader:safe-write' },
+      );
+      if (result?.conflict) {
+        const conflicted = await pluginCtx.resources.read(resource);
+        const conflictedBytes = toUint8Array(conflicted.content);
+        const conflictedContent = conflictedBytes.subarray(0, 8192).includes(0) ? null : new TextDecoder().decode(conflictedBytes);
+        return c.json({
+          conflict: true,
+          version: conflicted.version || result.version || null,
+          sha256: sha256(conflictedBytes),
+          content: conflictedContent,
+        }, 409);
+      }
+      return c.json({ ok: true, version: result?.version || null, sha256: sha256(new TextEncoder().encode(input.content)) });
+    } catch (error) {
+      return c.json({ error: safeErrorMessage(error) }, error?.status === 403 ? 403 : 400);
+    }
+  });
+
   app.post('/resources/read', async (c) => {
     try {
       const input = await c.req.json();
@@ -29,7 +81,7 @@ export default function registerPluginUiRoutes(app, ctx) {
       const stat = await pluginCtx.resources.stat(resource);
       const size = stat?.version?.size;
       if (typeof size === 'number' && size > MAX_READ_BYTES) {
-        return c.json({ error: `文件超过 M0 的 2 MB 阅读上限（${size} bytes）。` }, 413);
+        return c.json({ error: `文件超过 2 MB 阅读上限（${size} bytes）。` }, 413);
       }
       const result = await pluginCtx.resources.read(resource);
       const bytes = toUint8Array(result.content);
@@ -105,6 +157,14 @@ function toUint8Array(value) {
   if (value instanceof Uint8Array) return value;
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
   return new Uint8Array(value || []);
+}
+
+function hasVersionField(version) {
+  return version && typeof version === 'object' && ['mtimeMs', 'size', 'sha256', 'etag', 'sequence'].some((key) => version[key] !== undefined && version[key] !== null);
+}
+
+function sha256(value) {
+  return createHash('sha256').update(Buffer.from(value)).digest('hex');
 }
 
 function safeErrorMessage(error) {

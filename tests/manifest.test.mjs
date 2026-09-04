@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.3 reader page with read-only resource access', async () => {
+test('manifest declares the v0.4 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.3.1');
+  assert.equal(manifest.version, '0.4.0');
   assert.equal(manifest.trust, 'full-access');
-  assert.deepEqual(manifest.capabilities, ['resource.read']);
+  assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
   assert.equal(manifest.contributes.page.route, '/page');
   assert.ok(manifest.ui.hostCapabilities.includes('resource.pick'));
   assert.ok(manifest.dev.scenarios.some((scenario) => scenario.id === 'open-page'));
@@ -31,6 +31,8 @@ test('reader source, built assets, and cache-busting route are present', async (
     'src/markdown-engine.js',
     'src/markdown-editor.js',
     'docs/S2_EDITOR_VALIDATION.md',
+    'docs/S3_SAFE_WRITE.md',
+    'tests/write-route.test.mjs',
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
@@ -39,7 +41,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   }
 
   const manifest = await readJson('manifest.json');
-  assert.ok(!manifest.capabilities.includes('resource.write'));
+  assert.ok(manifest.capabilities.includes('resource.write'));
 
   const panelSource = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
   const panelBundle = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
@@ -49,11 +51,18 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.3\.1'/);
+  assert.match(route, /ASSET_REVISION = '0\.4\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.3\.1'/);
+  assert.match(route, /app\.post\('\/resources\/write'/);
+  assert.match(route, /writeExpectedVersion/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.4\.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
+  assert.match(panelSource, /resources\/write/);
+  assert.match(panelSource, /createLineDiff/);
+  assert.match(panelSource, /undoLastWrite/);
+  assert.match(panelSource, /source-editor/);
+  assert.match(panelSource, /reloadRemoteVersion/);
   assert.match(panelSource, /MAX_EDIT_BYTES = 512 \* 1024/);
   assert.match(panelSource, /超过 512 KB，仅只读预览/);
   assert.match(panelSource, /尚未写回文件/);

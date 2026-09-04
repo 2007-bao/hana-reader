@@ -4,13 +4,13 @@
 
 - 源码编辑器支持 Tab 插入两个空格，并保持源码文本模式。
 - Markdown 继续使用 Milkdown 所见即所得编辑器。
-- HTML 只读状态提供“安全预览 / 查看源码”切换。
-- HTML 预览使用无权限 `sandbox` iframe，不允许脚本访问宿主页面或文件系统。
+- HTML 只读状态提供“安全预览 / 查看源码”切换（512 KB 以内）。
+- HTML 预览先经 DOMPurify 移除脚本、外链资源和嵌入内容，再放入无权限 `sandbox` iframe，不允许脚本访问宿主页面或文件系统。
 - 编辑、自动保存与回撤沿用 v0.4.1 的统一链路。
 
 ## 安全边界
 
-HTML 预览只用于查看，不执行插件上下文中的脚本，也不授予 `allow-same-origin`、`allow-scripts` 等权限。HTML 文件写回仍保存用户输入的原始文本；安全处理只发生在预览隔离层。
+HTML 预览只用于查看，不执行插件上下文中的脚本，也不授予 `allow-same-origin`、`allow-scripts` 等权限。预览会移除 `script/style/link/meta/img/iframe` 等可能执行、导航或加载网络资源的标签。HTML 文件写回仍保存用户输入的原始文本；安全处理只发生在预览隔离层。
 
 ## 暂不包含
 

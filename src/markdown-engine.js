@@ -24,12 +24,24 @@ markdown.renderer.rules.fence = (tokens, index) => {
 const allowedUri = /^(?:(?:https?|mailto):|[#/.]|$)/i;
 let purifier = null;
 
-function sanitizeMarkup(html) {
+function sanitizeMarkup(html, options = {}) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return html;
   purifier ||= createDOMPurify(window);
   return purifier.sanitize(html, {
     USE_PROFILES: { html: true },
     ALLOWED_URI_REGEXP: allowedUri,
+    ...options,
+  });
+}
+
+export function sanitizeHtmlPreview(source) {
+  return sanitizeMarkup(String(source || ''), {
+    // Preview is intentionally document-only: no executable code, navigation,
+    // embedded documents, or network-backed resource elements.
+    FORBID_TAGS: [
+      'script', 'style', 'link', 'meta', 'base', 'iframe', 'object', 'embed',
+      'form', 'img', 'audio', 'video', 'source', 'track',
+    ],
   });
 }
 

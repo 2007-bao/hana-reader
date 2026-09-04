@@ -751,6 +751,14 @@ function highlightCode(source, language) {
       continue;
     }
 
+    if (slashComments && char === '/' && next === '*') {
+      const end = source.indexOf('*/', index + 2);
+      const boundary = end === -1 ? source.length : end + 2;
+      html += token('token-comment', source.slice(index, boundary));
+      index = boundary;
+      continue;
+    }
+
     if (slashComments && char === '/' && next === '/') {
       const end = source.indexOf('\n', index);
       const boundary = end === -1 ? source.length : end;
@@ -901,5 +909,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.5' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.6' });
 restoreSession();

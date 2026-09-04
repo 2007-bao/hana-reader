@@ -528,15 +528,51 @@ function renderTree() {
     <div class="tree-content">${tree}</div>`;
 }
 
+function safeMarkdownUrl(value) {
+  const candidate = String(value || '').trim();
+  if (!candidate) return '';
+  try {
+    const parsed = new URL(candidate, window.location.href);
+    return ['http:', 'https:', 'mailto:'].includes(parsed.protocol) ? candidate : '';
+  } catch {
+    return '';
+  }
+}
+
 function inlineMarkdown(value) {
   let html = escapeHtml(value);
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<span class="md-link" title="$2">$1</span>');
+  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
+    const safeUrl = safeMarkdownUrl(url);
+    return safeUrl
+      ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+      : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`;
+  });
   return html;
+}
+
+function parseMarkdownTableRow(line) {
+  const value = String(line || '').trim();
+  if (!value.includes('|')) return null;
+  const normalized = value.replace(/^\|/, '').replace(/\|$/, '');
+  const cells = normalized.split('|').map((cell) => cell.trim());
+  return cells.length >= 2 ? cells : null;
+}
+
+function isMarkdownTableDelimiter(line) {
+  const cells = parseMarkdownTableRow(line);
+  return Boolean(cells?.every((cell) => /^:?-{3,}:?$/.test(cell)));
+}
+
+function renderMarkdownTable(headers, rows) {
+  const head = headers.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join('');
+  const body = rows.map((row) => `<tr>${headers.map((_, index) => `<td>${inlineMarkdown(row[index] || '')}</td>`).join('')}</tr>`).join('');
+  return `<div class="markdown-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function renderMarkdown(source) {
@@ -560,7 +596,8 @@ function renderMarkdown(source) {
     list = null;
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     const fence = /^\s*```(.*)$/.exec(line);
     if (fence) {
       flushParagraph();
@@ -579,9 +616,35 @@ function renderMarkdown(source) {
       continue;
     }
 
+    const tableHeader = parseMarkdownTableRow(line);
+    if (tableHeader && isMarkdownTableDelimiter(lines[index + 1])) {
+      flushParagraph();
+      flushList();
+      const rows = [];
+      index += 2;
+      while (index < lines.length) {
+        const row = parseMarkdownTableRow(lines[index]);
+        if (!row) {
+          index -= 1;
+          break;
+        }
+        rows.push(row);
+        index += 1;
+      }
+      output.push(renderMarkdownTable(tableHeader, rows));
+      continue;
+    }
+
     if (!line.trim()) {
       flushParagraph();
       flushList();
+      continue;
+    }
+
+    if (/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      output.push('<hr>');
       continue;
     }
 
@@ -601,7 +664,10 @@ function renderMarkdown(source) {
         flushList();
         list = { type: 'unordered', items: [] };
       }
-      list.items.push(inlineMarkdown(bullet[1]));
+      const task = /^\[([ xX])\]\s+(.+)$/.exec(bullet[1]);
+      list.items.push(task
+        ? `<label class="task-item"><input type="checkbox" disabled ${task[1].toLowerCase() === 'x' ? 'checked' : ''}>${inlineMarkdown(task[2])}</label>`
+        : inlineMarkdown(bullet[1]));
       continue;
     }
 
@@ -831,5 +897,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.3' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.4' });
 restoreSession();

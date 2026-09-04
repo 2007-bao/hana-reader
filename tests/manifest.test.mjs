@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares a full-access reader page with read-only resource access', async () => {
+test('manifest declares the v0.2 reader page with read-only resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.11');
+  assert.equal(manifest.version, '0.2.0');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -22,11 +22,13 @@ test('manifest declares a full-access reader page with read-only resource access
   assert.ok(manifest.dev.scenarios.some((scenario) => scenario.id === 'open-page'));
 });
 
-test('M0 files exist and no write capability is declared', async () => {
+test('reader source, built assets, and cache-busting route are present', async () => {
   for (const relativePath of [
     'README.md',
     'COLLABORATION.md',
     'routes/ui.js',
+    'src/panel.js',
+    'src/markdown-engine.js',
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
@@ -37,21 +39,22 @@ test('M0 files exist and no write capability is declared', async () => {
   const manifest = await readJson('manifest.json');
   assert.ok(!manifest.capabilities.includes('resource.write'));
 
-  const panel = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+  const panelSource = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
+  const panelBundle = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
   const route = await fs.readFile(path.join(root, 'routes/ui.js'), 'utf8');
-  assert.ok(!panel.includes("from './hana-bridge.js'"));
-  assert.match(panel, /render\(\);\s*hana\.ready\(/);
+  assert.ok(!panelSource.includes("from './hana-bridge.js'"));
+  assert.match(panelSource, /render\(\);\s*hana\.ready\(/);
+  assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION/);
-  assert.match(route, /ASSET_REVISION = '0\.1\.11'/);
+  assert.match(route, /ASSET_REVISION = '0\.2\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
-  assert.match(panel, /const PLUGIN_VERSION = '0\.1\.11'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.2\.0'/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {
-  const panel = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+  const panel = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
 
   assert.match(panel, /hana-reader:last-session:v1/);
   assert.match(panel, /window\.localStorage\.getItem\(SESSION_STORAGE_KEY\)/);
@@ -62,23 +65,19 @@ test('reader persists and restores the last workspace, file, and scroll position
   assert.match(panel, /restoreSession\(\);/);
 });
 
-test('Markdown reader supports common GFM reading elements with safe external links', async () => {
-  const panel = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+test('mature Markdown and syntax engines are locally bundled with safe defaults', async () => {
+  const engine = await fs.readFile(path.join(root, 'src/markdown-engine.js'), 'utf8');
   const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
+  const packageJson = await readJson('package.json');
 
-  assert.match(panel, /parseMarkdownTableRow/);
-  assert.match(panel, /task-item/);
-  assert.match(panel, /safeMarkdownUrl/);
-  assert.match(panel, /protectedSpans/);
-  assert.match(panel, /\\uE000/);
-  assert.doesNotMatch(panel, /@@HANA_CODE_SPAN_/);
-  assert.match(panel, /noopener noreferrer/);
-  assert.match(panel, /output\.push\('<hr>'\)/);
-  assert.match(panel, /char === '\/' && next === '\*'/);
-  assert.match(css, /\.markdown-table-wrap/);
-  assert.match(css, /\.task-item/);
-  assert.match(css, /\.markdown-code \{/);
-  assert.match(css, /\.markdown-body \{[\s\S]*?font-style: normal;/);
-  assert.match(css, /\.markdown-body h1,[\s\S]*?font-style: normal;/);
-  assert.match(css, /\.token-comment \{[\s\S]*?color: #87968e;/);
+  assert.ok(packageJson.dependencies['markdown-it']);
+  assert.ok(packageJson.dependencies['highlight.js']);
+  assert.ok(packageJson.dependencies.dompurify);
+  assert.ok(packageJson.dependencies['markdown-it-task-lists']);
+  assert.match(engine, /html: false/);
+  assert.match(engine, /ALLOWED_URI_REGEXP/);
+  assert.match(engine, /markdown\.use\(taskLists/);
+  assert.match(engine, /highlight\.js/);
+  assert.match(css, /\.code-viewer \.hljs-keyword/);
+  assert.match(css, /\.markdown-body \.hljs-string/);
 });

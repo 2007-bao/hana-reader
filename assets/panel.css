@@ -578,17 +578,20 @@ button {
   border-bottom: 0;
 }
 
-.task-item {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 7px;
+.markdown-body .contains-task-list {
+  padding-left: 1.5em;
 }
 
-.task-item input {
+.markdown-body .task-list-item {
+  padding-left: 0.25em;
+  list-style: none;
+}
+
+.markdown-body .task-list-item-checkbox {
   width: 14px;
   height: 14px;
-  flex: 0 0 auto;
-  margin: 0.35em 0 0;
+  margin: 0 7px 0 0;
+  vertical-align: -0.12em;
   accent-color: var(--reader-accent);
 }
 
@@ -679,6 +682,57 @@ button {
 .token-keyword {
   color: #5a718f;
   font-weight: 650;
+}
+
+.code-viewer .hljs-keyword,
+.code-viewer .hljs-selector-tag,
+.code-viewer .hljs-built_in,
+.code-viewer .hljs-type,
+.markdown-body .hljs-keyword,
+.markdown-body .hljs-selector-tag,
+.markdown-body .hljs-built_in,
+.markdown-body .hljs-type {
+  color: #5a718f;
+  font-weight: 650;
+}
+
+.code-viewer .hljs-string,
+.code-viewer .hljs-regexp,
+.code-viewer .hljs-symbol,
+.markdown-body .hljs-string,
+.markdown-body .hljs-regexp,
+.markdown-body .hljs-symbol {
+  color: #9d6c43;
+}
+
+.code-viewer .hljs-comment,
+.code-viewer .hljs-quote,
+.markdown-body .hljs-comment,
+.markdown-body .hljs-quote {
+  color: #87968e;
+}
+
+.code-viewer .hljs-number,
+.code-viewer .hljs-literal,
+.markdown-body .hljs-number,
+.markdown-body .hljs-literal {
+  color: #8a6ca8;
+}
+
+.code-viewer .hljs-title,
+.code-viewer .hljs-title.function_,
+.code-viewer .hljs-title.class_,
+.markdown-body .hljs-title,
+.markdown-body .hljs-title.function_,
+.markdown-body .hljs-title.class_ {
+  color: #557e78;
+}
+
+.code-viewer .hljs-attr,
+.code-viewer .hljs-attribute,
+.markdown-body .hljs-attr,
+.markdown-body .hljs-attribute {
+  color: #7b647e;
 }
 
 .binary-placeholder {

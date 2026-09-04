@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
 
-> 当前版本：`0.1.11` · M0 只读大版本已验收
+> 当前版本：`0.2.0` · S1 成熟 Markdown 阅读内核迁移中
 
 ## 当前目标
 
@@ -22,11 +22,11 @@
 
 ## 开发方式
 
-这是一个可直接被 Hana 加载的无构建依赖插件骨架：
+这是一个使用最小本地构建、最终可直接被 Hana 加载的插件：
 
 1. 在 Hana 设置 → 插件中开启允许 Agent 插件开发工具与全权插件（开发时需要）。
 2. 使用 Hana 的插件 dev loop 安装本目录源码。
-3. 修改 `assets/` 或 `routes/` 后 reload。
+3. 修改 `src/`、`assets/` 或 `routes/` 后运行 `npm run build`，再 reload。
 4. 通过插件诊断面板确认页面加载状态。
 
 也可以把插件文件夹拖入 Hana 设置 → 插件进行本地安装。
@@ -37,8 +37,10 @@
 
 ```text
 manifest.json       插件声明与最小权限
+package.json        本地构建与依赖
 routes/ui.js        Page shell 与 ResourceIO 路由
-assets/             iframe 页面静态资源
+src/                可维护的前端源代码与渲染内核
+assets/             iframe 页面静态资源（含构建产物）
   panel.js          M0 阅读器界面
   panel.css         Hana 风格界面样式
   hana-bridge.js    当前 M0 所需的轻量 SDK 协议适配
@@ -61,6 +63,8 @@ GitHub 仓库公开，但暂不接入 GitHub API。GitHub 只用于保存源码�
 
 ## 后续路线
 
-- M1：所见即所得 Markdown 编辑、保存冲突检测、当前文件 Copilot
-- M2：代码编辑与安全预览、AI 修改建议、Diff 预览、接受 / 拒绝 / 撤销、轻量批注
+- S1：成熟 Markdown / 代码阅读内核迁移与安全渲染
+- S2：所见即所得 Markdown 编辑器技术验证
+- S3：安全写回、保存冲突检测、Diff 与撤销
+- S4：代码编辑器与安全 HTML 预览
 - 后续：全文搜索、跨文件问答、Git 状态等按真实痛点增加

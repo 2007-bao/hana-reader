@@ -62,7 +62,20 @@ function renderShell(c, ctx) {
   <link rel="stylesheet" href="${assetBase}/panel.css">
 </head>
 <body data-hana-theme="${escapeAttr(theme)}" data-surface="page">
-  <div id="root"></div>
+  <div id="root" data-surface="page"><div style="display:grid;place-items:center;min-height:100vh;color:#7c8790;font:13px system-ui,sans-serif">正在加载 Hana Reader…</div></div>
+  <script>
+    window.addEventListener('error', (event) => {
+      const root = document.getElementById('root');
+      if (!root) return;
+      root.innerHTML = '<div style="display:grid;place-items:center;min-height:100vh;color:#b35b5b;font:13px system-ui,sans-serif;text-align:center;padding:24px">面板加载失败：' + (event.message || '前端资源错误') + '</div>';
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      const root = document.getElementById('root');
+      if (!root) return;
+      const reason = event.reason && event.reason.message ? event.reason.message : '未处理的前端异常';
+      root.innerHTML = '<div style="display:grid;place-items:center;min-height:100vh;color:#b35b5b;font:13px system-ui,sans-serif;text-align:center;padding:24px">面板加载失败：' + String(reason).replace(/[<>&]/g, '') + '</div>';
+    });
+  </script>
   <script type="module" src="${assetBase}/panel.js"></script>
 </body>
 </html>`;

@@ -542,7 +542,7 @@ function safeMarkdownUrl(value) {
 function inlineMarkdown(value) {
   const codeSpans = [];
   let html = escapeHtml(value).replace(/`([^`]+)`/g, (match, code) => {
-    const marker = `@@HANA_CODE_SPAN_${codeSpans.length}@@`;
+    const marker = `@@HANACODESPAN${codeSpans.length}@@`;
     codeSpans.push(`<code>${code}</code>`);
     return marker;
   });
@@ -557,7 +557,7 @@ function inlineMarkdown(value) {
       ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
       : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`;
   });
-  return html.replace(/@@HANA_CODE_SPAN_(\d+)@@/g, (match, index) => codeSpans[Number(index)]);
+  return html.replace(/@@HANACODESPAN(\d+)@@/g, (match, index) => codeSpans[Number(index)]);
 }
 
 function parseMarkdownTableRow(line) {
@@ -909,5 +909,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.6' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.7' });
 restoreSession();

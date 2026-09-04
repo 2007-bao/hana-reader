@@ -14,7 +14,7 @@ test('manifest declares a full-access reader page with read-only resource access
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.1.10');
+  assert.equal(manifest.version, '0.1.11');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -43,7 +43,11 @@ test('M0 files exist and no write capability is declared', async () => {
   assert.match(panel, /render\(\);\s*hana\.ready\(/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /withToken/);
+  assert.match(route, /ASSET_REVISION/);
+  assert.match(route, /ASSET_REVISION = '0\.1\.11'/);
+  assert.match(route, /withAssetQuery/);
+  assert.match(route, /params\.set\('token', token\)/);
+  assert.match(panel, /const PLUGIN_VERSION = '0\.1\.11'/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {

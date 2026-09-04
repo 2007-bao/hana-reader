@@ -2,6 +2,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
+const PLUGIN_VERSION = '0.1.11';
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
 let sequence = 0;
@@ -876,7 +877,7 @@ function render() {
 
   root.innerHTML = `<div class="reader-app">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">阅</span><div><strong>Hana Reader</strong><small>AI 产物审阅工作台</small></div></div>
+      <div class="brand"><span class="brand-mark">阅</span><div><strong>Hana Reader</strong><small>AI 产物审阅工作台 · v${PLUGIN_VERSION}</small></div></div>
       <div class="top-actions"><span class="status ${state.error ? 'error' : ''}">${escapeHtml(state.error || state.status)}</span><button class="button ghost" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'}>↻ 刷新</button><button class="button primary" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''}>选择文件夹</button></div>
     </header>
     <div class="workspace">
@@ -916,5 +917,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.10' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: PLUGIN_VERSION });
 restoreSession();

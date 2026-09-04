@@ -1,4 +1,5 @@
 const MAX_READ_BYTES = 2 * 1024 * 1024;
+const ASSET_REVISION = '0.1.11';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));
@@ -51,11 +52,13 @@ function renderShell(c, ctx) {
   const theme = c.req.query('hana-theme') || 'inherit';
   const token = c.req.query('token') || '';
   const assetBase = `/api/plugins/${encodeURIComponent(ctx.pluginId)}/assets`;
-  const withToken = (url) => token
-    ? `${url}?${new URLSearchParams({ token }).toString()}`
-    : url;
-  const panelCss = withToken(`${assetBase}/panel.css`);
-  const panelJs = withToken(`${assetBase}/panel.js`);
+  const withAssetQuery = (url) => {
+    const params = new URLSearchParams({ v: ASSET_REVISION });
+    if (token) params.set('token', token);
+    return `${url}?${params.toString()}`;
+  };
+  const panelCss = withAssetQuery(`${assetBase}/panel.css`);
+  const panelJs = withAssetQuery(`${assetBase}/panel.js`);
   const title = 'Hana Reader';
 
   return `<!doctype html>

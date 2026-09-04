@@ -540,24 +540,27 @@ function safeMarkdownUrl(value) {
 }
 
 function inlineMarkdown(value) {
-  const codeSpans = [];
-  let html = escapeHtml(value).replace(/`([^`]+)`/g, (match, code) => {
-    const marker = `@@HANACODESPAN${codeSpans.length}@@`;
-    codeSpans.push(`<code>${code}</code>`);
+  const protectedSpans = [];
+  const protect = (html) => {
+    const marker = `\uE000${protectedSpans.length}\uE001`;
+    protectedSpans.push(html);
     return marker;
+  };
+
+  let html = escapeHtml(value);
+  html = html.replace(/`([^`]+)`/g, (match, code) => protect(`<code>${code}</code>`));
+  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
+    const safeUrl = safeMarkdownUrl(url);
+    return protect(safeUrl
+      ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+      : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`);
   });
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
-    const safeUrl = safeMarkdownUrl(url);
-    return safeUrl
-      ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
-      : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`;
-  });
-  return html.replace(/@@HANACODESPAN(\d+)@@/g, (match, index) => codeSpans[Number(index)]);
+  return html.replace(/\uE000(\d+)\uE001/g, (match, index) => protectedSpans[Number(index)]);
 }
 
 function parseMarkdownTableRow(line) {
@@ -909,5 +912,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.7' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.8' });
 restoreSession();

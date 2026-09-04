@@ -560,7 +560,11 @@ function inlineMarkdown(value) {
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-  return html.replace(/\uE000(\d+)\uE001/g, (match, index) => protectedSpans[Number(index)]);
+  for (let index = protectedSpans.length - 1; index >= 0; index -= 1) {
+    const marker = `\uE000${index}\uE001`;
+    html = html.replaceAll(marker, protectedSpans[index]);
+  }
+  return html;
 }
 
 function parseMarkdownTableRow(line) {

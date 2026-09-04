@@ -5,7 +5,8 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.3.0';
+const PLUGIN_VERSION = '0.3.1';
+const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
 let sequence = 0;
@@ -243,6 +244,14 @@ function makeNode({ resource, name, isDirectory, size = null, mtimeMs = null, re
   };
 }
 
+function byteLength(value) {
+  try {
+    return new TextEncoder().encode(String(value || '')).byteLength;
+  } catch {
+    return String(value || '').length;
+  }
+}
+
 function formatSize(size) {
   if (size === null || size === undefined || Number.isNaN(Number(size))) return '';
   const value = Number(size);
@@ -406,6 +415,7 @@ async function openFile(node, options = {}) {
       binary: Boolean(result.binary),
       content: result.content || '',
       version: result.version || null,
+      editable: inferLanguage(node.name) === 'markdown' && byteLength(result.content || '') <= MAX_EDIT_BYTES,
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
     };
     saveSession();
@@ -553,7 +563,7 @@ function renderCodeViewer(content, language) {
 }
 
 async function startMarkdownEditing() {
-  if (!state.current || state.current.language !== 'markdown' || state.editing || state.busy) return;
+  if (!state.current || state.current.language !== 'markdown' || !state.current.editable || state.editing || state.busy) return;
   state.editing = true;
   state.current.draftMarkdown = state.current.content;
   state.current.draftDirty = false;
@@ -601,7 +611,7 @@ function renderReaderPane() {
   const current = state.current;
   const title = escapeHtml(current.name);
   const language = languageLabel(current.language);
-  if (current.language === 'markdown' && state.editing) {
+  if (current.language === 'markdown' && current.editable && state.editing) {
     return `<div class="reader-header">
       <div class="file-heading"><span class="file-kind">M↓</span><div><h2>${title}</h2><p>${language} · 所见即所得编辑预览</p></div></div>
       <div class="reader-header-actions"><span id="markdown-editor-status" class="editor-status">本地编辑预览 · 未修改</span><button class="button ghost" data-action="exit-markdown">退出编辑</button></div>
@@ -614,9 +624,11 @@ function renderReaderPane() {
     : current.language === 'markdown'
       ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
       : renderCodeViewer(current.content, current.language);
-  const editorAction = current.language === 'markdown'
+  const editorAction = current.language === 'markdown' && current.editable
     ? '<button class="button ghost" data-action="edit-markdown">所见即所得编辑</button>'
-    : '';
+    : current.language === 'markdown'
+      ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
+      : '';
 
   return `<div class="reader-header">
     <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>

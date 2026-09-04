@@ -14,7 +14,7 @@ test('manifest declares the v0.3 reader page with read-only resource access', as
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.3.0');
+  assert.equal(manifest.version, '0.3.1');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -30,6 +30,7 @@ test('reader source, built assets, and cache-busting route are present', async (
     'src/panel.js',
     'src/markdown-engine.js',
     'src/markdown-editor.js',
+    'docs/S2_EDITOR_VALIDATION.md',
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
@@ -48,11 +49,13 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.3\.0'/);
+  assert.match(route, /ASSET_REVISION = '0\.3\.1'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.3\.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.3\.1'/);
   assert.match(panelSource, /mountMarkdownEditor/);
+  assert.match(panelSource, /MAX_EDIT_BYTES = 512 \* 1024/);
+  assert.match(panelSource, /超过 512 KB，仅只读预览/);
   assert.match(panelSource, /尚未写回文件/);
 });
 

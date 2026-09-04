@@ -540,24 +540,31 @@ function safeMarkdownUrl(value) {
 }
 
 function inlineMarkdown(value) {
-  const codeSpans = [];
-  let html = escapeHtml(value).replace(/`([^`]+)`/g, (match, code) => {
-    const marker = `@@HANA_CODE_SPAN_${codeSpans.length}@@`;
-    codeSpans.push(`<code>${code}</code>`);
+  const protectedSpans = [];
+  const protect = (html) => {
+    const marker = `\uE000${protectedSpans.length}\uE001`;
+    protectedSpans.push(html);
     return marker;
+  };
+
+  let html = escapeHtml(value);
+  html = html.replace(/`([^`]+)`/g, (match, code) => protect(`<code>${code}</code>`));
+  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
+    const safeUrl = safeMarkdownUrl(url);
+    return protect(safeUrl
+      ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+      : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`);
   });
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
-    const safeUrl = safeMarkdownUrl(url);
-    return safeUrl
-      ? `<a class="md-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
-      : `<span class="md-link" title="${escapeHtml(url)}">${label}</span>`;
-  });
-  return html.replace(/@@HANA_CODE_SPAN_(\d+)@@/g, (match, index) => codeSpans[Number(index)]);
+  for (let index = protectedSpans.length - 1; index >= 0; index -= 1) {
+    const marker = `\uE000${index}\uE001`;
+    html = html.replaceAll(marker, protectedSpans[index]);
+  }
+  return html;
 }
 
 function parseMarkdownTableRow(line) {
@@ -909,5 +916,5 @@ function render() {
 }
 
 render();
-hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.6' });
+hana.ready({ surface: 'page', pluginId: 'hana-reader', version: '0.1.9' });
 restoreSession();

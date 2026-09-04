@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.2 reader page with read-only resource access', async () => {
+test('manifest declares the v0.3 reader page with read-only resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.2.0');
+  assert.equal(manifest.version, '0.3.0');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -29,6 +29,7 @@ test('reader source, built assets, and cache-busting route are present', async (
     'routes/ui.js',
     'src/panel.js',
     'src/markdown-engine.js',
+    'src/markdown-editor.js',
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
@@ -47,10 +48,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.2\.0'/);
+  assert.match(route, /ASSET_REVISION = '0\.3\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.2\.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0\.3\.0'/);
+  assert.match(panelSource, /mountMarkdownEditor/);
+  assert.match(panelSource, /尚未写回文件/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {
@@ -74,6 +77,7 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.ok(packageJson.dependencies['highlight.js']);
   assert.ok(packageJson.dependencies.dompurify);
   assert.ok(packageJson.dependencies['markdown-it-task-lists']);
+  assert.ok(packageJson.dependencies['@milkdown/kit']);
   assert.match(engine, /html: false/);
   assert.match(engine, /ALLOWED_URI_REGEXP/);
   assert.match(engine, /markdown\.use\(taskLists/);

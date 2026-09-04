@@ -1,13 +1,15 @@
 import { highlightCode, renderMarkdown } from './markdown-engine.js';
+import { mountMarkdownEditor } from './markdown-editor.js';
 
 const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.2.0';
+const PLUGIN_VERSION = '0.3.0';
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 
 let sequence = 0;
+let activeMarkdownEditor = null;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -139,6 +141,7 @@ const state = {
   current: null,
   busy: false,
   restoring: false,
+  editing: false,
   status: '请选择一个文件夹开始阅读',
   error: '',
 };
@@ -309,8 +312,17 @@ async function apiJson(path, body) {
   return payload;
 }
 
+async function destroyMarkdownEditor() {
+  if (!activeMarkdownEditor) return;
+  const editor = activeMarkdownEditor;
+  activeMarkdownEditor = null;
+  await editor.destroy();
+}
+
 async function chooseFolder() {
   if (state.busy || state.restoring) return;
+  await destroyMarkdownEditor();
+  state.editing = false;
   state.error = '';
   state.status = '等待选择文件夹…';
   render();
@@ -378,6 +390,8 @@ async function loadDirectory(node) {
 
 async function openFile(node, options = {}) {
   if (!node?.resource || node.isDirectory || state.busy) return;
+  await destroyMarkdownEditor();
+  state.editing = false;
   state.busy = true;
   state.error = '';
   state.status = `正在打开 ${node.name}…`;
@@ -407,6 +421,8 @@ async function openFile(node, options = {}) {
 
 async function refreshRoot() {
   if (!state.rootNode || state.busy) return;
+  await destroyMarkdownEditor();
+  state.editing = false;
   state.current = null;
   state.rootNode.items = [];
   state.rootNode.loaded = false;
@@ -536,6 +552,41 @@ function renderCodeViewer(content, language) {
     <div class="code-line"><span class="line-number">${index + 1}</span><code>${highlightCode(line, language)}</code></div>`).join('')}</div>`;
 }
 
+async function startMarkdownEditing() {
+  if (!state.current || state.current.language !== 'markdown' || state.editing || state.busy) return;
+  state.editing = true;
+  state.current.draftMarkdown = state.current.content;
+  state.current.draftDirty = false;
+  render();
+
+  try {
+    activeMarkdownEditor = await mountMarkdownEditor(root.querySelector('#markdown-editor'), state.current.content, {
+      onMarkdownChange(markdown) {
+        if (!state.current || !state.editing) return;
+        state.current.draftMarkdown = markdown;
+        state.current.draftDirty = markdown !== state.current.content;
+        const status = root.querySelector('#markdown-editor-status');
+        if (status) status.textContent = state.current.draftDirty ? '本地草稿 · 尚未写回' : '本地编辑预览 · 未修改';
+      },
+    });
+  } catch (error) {
+    activeMarkdownEditor = null;
+    state.editing = false;
+    state.error = `编辑器加载失败：${error instanceof Error ? error.message : String(error)}`;
+    render();
+  }
+}
+
+async function stopMarkdownEditing() {
+  await destroyMarkdownEditor();
+  state.editing = false;
+  if (state.current) {
+    delete state.current.draftMarkdown;
+    delete state.current.draftDirty;
+  }
+  render();
+}
+
 function renderReaderPane() {
   if (!state.current) {
     return `<div class="welcome-pane">
@@ -550,15 +601,26 @@ function renderReaderPane() {
   const current = state.current;
   const title = escapeHtml(current.name);
   const language = languageLabel(current.language);
+  if (current.language === 'markdown' && state.editing) {
+    return `<div class="reader-header">
+      <div class="file-heading"><span class="file-kind">M↓</span><div><h2>${title}</h2><p>${language} · 所见即所得编辑预览</p></div></div>
+      <div class="reader-header-actions"><span id="markdown-editor-status" class="editor-status">本地编辑预览 · 未修改</span><button class="button ghost" data-action="exit-markdown">退出编辑</button></div>
+    </div>
+    <div class="editor-scroll"><div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div></div>`;
+  }
+
   const body = current.binary
     ? `<div class="binary-placeholder"><div class="placeholder-icon">◇</div><h3>暂不预览二进制文件</h3><p>当前阶段只面向文本与代码阅读。</p></div>`
     : current.language === 'markdown'
       ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
       : renderCodeViewer(current.content, current.language);
+  const editorAction = current.language === 'markdown'
+    ? '<button class="button ghost" data-action="edit-markdown">所见即所得编辑</button>'
+    : '';
 
   return `<div class="reader-header">
     <div class="file-heading"><span class="file-kind">${current.language === 'markdown' ? 'M↓' : '{}'}</span><div><h2>${title}</h2><p>${language} · 只读预览</p></div></div>
-    <span class="read-only-badge">READ ONLY</span>
+    <div class="reader-header-actions">${editorAction}<span class="read-only-badge">READ ONLY</span></div>
   </div>
   <div class="viewer-scroll">${body}</div>`;
 }
@@ -602,7 +664,7 @@ function render() {
       <main class="reader-panel">${renderReaderPane()}</main>
       ${renderCopilot()}
     </div>
-    <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>编辑、Copilot 与批注将在后续阶段加入</span></footer>
+    <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>S2 所见即所得编辑预览 · 尚未写回文件</span></footer>
   </div>`;
 
   root.querySelectorAll('[data-action]').forEach((element) => {
@@ -613,6 +675,8 @@ function render() {
       if (action === 'refresh') refreshRoot();
       if (action === 'toggle') toggleDirectory(node);
       if (action === 'open') openFile(node);
+      if (action === 'edit-markdown') startMarkdownEditing();
+      if (action === 'exit-markdown') stopMarkdownEditing();
     });
   });
 

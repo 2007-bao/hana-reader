@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.3.2` · 清爽三栏阅读、编辑、AI 辅助、Notebook 与正文批注
+> 当前版本：`v1.3.3` · 清爽三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -13,9 +13,9 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 - 左侧只负责浏览当前文件夹；
 - 中间负责阅读、编辑和安全预览；
 - 右侧只保留 AI 辅助与 Notebook；
-- 批注直接落在正文中，不把阅读内容挪到侧栏。
+- 高亮、下划线和擦除直接作用于正文，不把阅读内容挪到侧栏。
 
-所有用户文件通过 Hana ResourceIO 访问；批注、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
+所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
 
 ## v1.2.0 本轮完成
 
@@ -32,15 +32,13 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 - 支持 Markdown、JSON、HTML、JavaScript、TypeScript、Python 等文本阅读。
 - Markdown 使用本地 Milkdown 所见即所得编辑器；其他文本使用源码编辑器。
 - 自动保存、版本冲突保护、安全 HTML 预览和 `512 KB` 编辑上限保持不变。
-- 编辑态 `Ctrl/Cmd + Z` 使用编辑器原生撤销；只读态按最近时间撤销最近一次批注操作或最近一次安全写回。
+- 编辑态 `Ctrl/Cmd + Z` 使用编辑器原生撤销；只读态按最近时间撤销最近一次正文标记操作或最近一次安全写回。
 - 选择文件夹后可通过本地目录入口打开系统文件资源管理器。
 
-### 正文批注
+### 正文标记
 
-- 选中文本后，在正文下方的悬浮菜单中添加批注、高亮、下划线或擦除已有标记。
-- 批注输入气泡支持 Enter 保存、Shift + Enter 换行；取消选区后悬浮菜单自动消失。
-- 批注显示为正文橙色波浪下划线，悬浮时显示气泡；高亮和下划线仍保存在本地。
-- 批注使用文本锚点恢复，默认不向普通 Markdown 注入私有语法，也不再依赖右侧批注面板。
+- 选中文本后，在正文下方的悬浮菜单中添加高亮、下划线或擦除已有标记。
+- 取消选区后悬浮菜单自动消失；高亮和下划线使用文本锚点保存在本地。
 
 ### AI 辅助
 
@@ -60,9 +58,9 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 ## 当前限制与后续方向
 
 - Copilot 依赖 Hana `model.sample` 与可用的 utility 文本模型。
-- 批注、Notebook、会话位置和 Copilot 历史尚未做跨设备 sidecar 同步。
+- 正文标记、Notebook、会话位置和 Copilot 历史尚未做跨设备 sidecar 同步。
 - Notebook 导出通过 ResourceIO 选择已有文本文件并安全覆盖；当前不负责创建新的 ResourceIO 文件。
-- 后续优先考虑批注 / Notebook 导入导出、轻量多标签、长文档分段渲染和死 CSS 清理。
+- 后续优先考虑 Notebook 导入导出、轻量多标签、长文档分段渲染和死 CSS 清理。
 - `knob-motion-lab/` 是其他实验目录，不属于本插件范围。
 
 ## 给下一次 AI / 新对话的交接说明
@@ -125,4 +123,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.3.2`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.3.3`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

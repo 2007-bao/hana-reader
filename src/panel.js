@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.3.2';
+const PLUGIN_VERSION = '1.3.3';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -520,6 +520,11 @@ function updateEditorStatus() {
   });
 }
 
+function restoreEditorScroll() {
+  const scroll = root.querySelector('.editor-scroll');
+  if (scroll && state.current) scroll.scrollTop = state.current.scrollTop || 0;
+}
+
 async function mountCurrentEditor() {
   if (!state.current || !state.editing) return;
   updateEditorStatus();
@@ -541,6 +546,7 @@ async function mountCurrentEditor() {
       const editor = await promise;
       if (generation !== editorGeneration || state.current !== session || !state.editing) return;
       activeMarkdownEditor = editor;
+      restoreEditorScroll();
     } finally {
       if (pendingMarkdownEditor === promise) pendingMarkdownEditor = null;
     }
@@ -558,6 +564,7 @@ async function mountCurrentEditor() {
     textarea.setRangeText('  ', start, end, 'end');
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  restoreEditorScroll();
   textarea.addEventListener('input', () => {
     if (!state.current || !state.editing) return;
     state.current.draftContent = textarea.value;
@@ -672,7 +679,9 @@ async function openFile(node, options = {}) {
       htmlPreview: false,
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
       annotationKey,
-      annotations: language === 'markdown' ? loadAnnotations(window.localStorage, ANNOTATION_STORAGE_KEY, annotationKey) : [],
+      annotations: language === 'markdown'
+        ? loadAnnotations(window.localStorage, ANNOTATION_STORAGE_KEY, annotationKey).filter((annotation) => annotation.kind !== 'comment')
+        : [],
       undoAt: 0,
       saveFailed: false,
     };
@@ -880,6 +889,8 @@ function renderCodeViewer(content, language) {
 
 async function startEditing() {
   if (!state.current || state.current.binary || state.editing || state.busy) return;
+  const readScrollTop = root.querySelector('.viewer-scroll')?.scrollTop;
+  if (Number.isFinite(readScrollTop)) state.current.scrollTop = readScrollTop;
   state.editing = true;
   state.current.draftContent = state.current.content;
   state.current.draftDirty = false;
@@ -1171,7 +1182,7 @@ function createSelectionToolbar(viewer, rect = currentSelectionRect()) {
   if (!viewer || !rect) return;
   const toolbar = document.createElement('div');
   toolbar.className = 'selection-toolbar';
-  toolbar.innerHTML = '<button type="button" data-annotation-action="comment">批注</button><button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">下划线</button><button type="button" data-annotation-action="erase">擦除</button>';
+  toolbar.innerHTML = '<button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">下划线</button><button type="button" data-annotation-action="erase">擦除</button>';
   toolbar.addEventListener('mousedown', (event) => event.preventDefault());
   toolbar.addEventListener('click', (event) => {
     const action = event.target.closest('button')?.dataset.annotationAction;
@@ -1595,8 +1606,7 @@ function renderNotebookPanel() {
   const deletePrompt = deleteTarget
     ? `<div class="notebook-delete-prompt" role="alert"><span>删除“${escapeHtml(deleteTarget.title)}”？</span><button class="button danger tiny" data-action="confirm-delete-notebook" data-notebook-id="${escapeHtml(deleteTarget.id)}">删除</button><button class="button ghost tiny" data-action="cancel-delete-notebook">取消</button></div>`
     : '';
-  const status = /Notebook|笔记本|导出/.test(state.status) ? `<div class="notebook-status" role="status">${escapeHtml(state.status)}</div>` : '';
-  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}" title="右键删除">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button><button class="button danger tiny" data-action="request-delete-active-notebook" title="删除当前笔记本">删除</button></div>${status}<textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
+  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}" title="右键删除">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button><button class="button danger tiny" data-action="request-delete-active-notebook" title="删除当前笔记本">删除</button></div><textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
 }
 
 let resizeCleanup = null;
@@ -1816,18 +1826,21 @@ function render() {
   }
 
   const viewer = root.querySelector('.viewer-scroll');
+  const readerScroll = root.querySelector('.viewer-scroll, .editor-scroll');
+  if (readerScroll && state.current) {
+    readerScroll.scrollTop = state.current.scrollTop || 0;
+    readerScroll.addEventListener('scroll', () => {
+      if (!state.current) return;
+      state.current.scrollTop = readerScroll.scrollTop;
+      scheduleSessionSave();
+    }, { passive: true });
+  }
   if (viewer && state.current) {
-    viewer.scrollTop = state.current.scrollTop || 0;
     viewer.addEventListener('mousedown', (event) => {
       if (!event.target.closest('.selection-toolbar, .annotation-composer-popover')) clearViewerSelection(viewer);
     });
     viewer.addEventListener('mouseup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
     viewer.addEventListener('keyup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
-    viewer.addEventListener('scroll', () => {
-      if (!state.current) return;
-      state.current.scrollTop = viewer.scrollTop;
-      scheduleSessionSave();
-    }, { passive: true });
   }
 
   requestAnimationFrame(async () => {

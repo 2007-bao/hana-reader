@@ -25,15 +25,15 @@
   --reader-accent: var(--accent, #2f73e6);
   --reader-accent-soft: rgba(47, 115, 230, 0.14);
   --reader-shadow: 0 16px 40px rgba(45, 60, 70, 0.08);
-  --reader-middle-bg: color-mix(in srgb, #ffffff 88%, var(--reader-bg));
-  --reader-side-bg: var(--reader-middle-bg);
+  --reader-middle-bg: #ffffff;
+  --reader-side-bg: #f2f3f5;
   --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
   --reader-code-bg: #f5f6f7;
   --reader-heading: #20242a;
   --reader-scroll-thumb: #9aa1aa;
-  --reader-reading-bg: #f3f4f5;
+  --reader-reading-bg: #ffffff;
   --maple-morning: #9bc9ff;
   --maple-aurora: #59d2e5;
   --maple-ice: #73dff0;
@@ -82,7 +82,9 @@ body[data-hana-theme="dark"] {
   --reader-code-attr: var(--maple-morning);
   --reader-heading: #f0f2f5;
   --reader-scroll-thumb: #7d8792;
-  --reader-reading-bg: #25272b;
+  --reader-middle-bg: #202226;
+  --reader-side-bg: #2b2e33;
+  --reader-reading-bg: #202226;
 }
 
 * {
@@ -572,7 +574,8 @@ body[data-hana-theme="dark"] .tree-nested::before {
 }
 
 .markdown-editor {
-  max-width: 820px;
+  width: 100%;
+  max-width: none;
   min-height: 440px;
   margin: 0 auto;
   border: 1px solid var(--reader-border);
@@ -582,6 +585,7 @@ body[data-hana-theme="dark"] .tree-nested::before {
 }
 
 .markdown-editor .milkdown {
+  width: 100%;
   min-height: 440px;
   padding: 24px clamp(20px, 4vw, 52px) 42px;
 }
@@ -2032,14 +2036,14 @@ body {
 .tree-row {
   position: relative;
   z-index: 1;
-  min-height: 18px;
+  min-height: 19px;
   padding-top: 0;
   padding-bottom: 0;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .tree-name {
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.15;
 }
 
@@ -2048,9 +2052,13 @@ body {
 }
 
 .tree-row.directory {
-  margin-top: 1px;
+  margin-top: 0;
   padding-top: 1px;
   padding-bottom: 1px;
+}
+
+.tree-row.directory[data-depth="1"] {
+  margin-top: 8px;
 }
 
 .tree-nested .tree-row.directory {
@@ -2332,11 +2340,11 @@ body {
 }
 
 .copilot-message-body {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .copilot-message-label {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .panel-view-button {
@@ -2356,11 +2364,20 @@ body {
   font-size: 14px;
 }
 
+.notebook-wrap {
+  position: relative;
+}
+
 .notebook-delete-prompt {
+  position: absolute;
+  z-index: 8;
+  top: 6px;
+  right: 8px;
+  left: 8px;
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 7px 10px 0;
+  margin: 0;
   padding: 7px 9px;
   border: 1px solid var(--reader-border);
   border-radius: 8px;
@@ -2374,17 +2391,11 @@ body {
   min-width: 0;
 }
 
-.notebook-status {
-  margin: 7px 10px 0;
-  color: var(--reader-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
 
 .copilot-message-body .assistant-markdown {
   max-width: none;
   font-family: var(--reader-ui-font);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.65;
 }
 

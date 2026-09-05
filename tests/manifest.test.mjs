@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.3.2 reader page with guarded resource access', async () => {
+test('manifest declares the v1.3.3 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.3.2');
+  assert.equal(manifest.version, '1.3.3');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -71,7 +71,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.3\.2'/);
+  assert.match(route, /ASSET_REVISION = '1\.3\.3'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -81,7 +81,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.3.2'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.3.3'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -160,6 +160,7 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /cancelAnnotationComposer/);
   assert.match(panel, /activeSelectionRect/);
   assert.match(panel, /annotation-composer-actions/);
+  assert.doesNotMatch(panel, /data-annotation-action="comment"/);
   assert.match(panel, /requestNotebookDelete/);
   assert.match(panel, /exportNotebookToResource/);
   assert.match(panel, /mode: 'file'/);
@@ -167,6 +168,8 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.doesNotMatch(panel, /window\.confirm/);
   assert.doesNotMatch(panel, /createObjectURL/);
   assert.match(panel, /!event\.shiftKey/);
+  assert.match(panel, /readerScroll\.addEventListener\('scroll'/);
+  assert.match(panel, /restoreEditorScroll/);
   assert.doesNotMatch(panel, /data-annotation-filter/);
   assert.doesNotMatch(panel, /annotation-sidebar/);
   assert.match(annotationEngine, /annotation-comment/);
@@ -177,10 +180,12 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);
   assert.match(css, /\.annotation-comment/);
   assert.match(css, /--reader-scroll-thumb/);
-  assert.match(css, /--reader-reading-bg: #f3f4f5/);
+  assert.match(css, /--reader-middle-bg: #ffffff/);
+  assert.match(css, /--reader-side-bg: #f2f3f5/);
   assert.match(css, /color: var\(--reader-heading\)/);
   assert.match(css, /background: #f5f6f7/);
   assert.match(css, /text-decoration: underline wavy #e49a55/);
+  assert.match(css, /\.notebook-delete-prompt \{/);
   assert.match(css, /text-decoration-skip-ink: none/);
 });
 
@@ -192,7 +197,7 @@ test('reader persists and restores the last workspace, file, and scroll position
   assert.match(panel, /window\.localStorage\.setItem\(SESSION_STORAGE_KEY, JSON\.stringify\(snapshot\)\)/);
   assert.match(panel, /currentPath: state\.current\?\.node\?\.relativePath/);
   assert.match(panel, /scrollTop: state\.current\?\.scrollTop/);
-  assert.match(panel, /viewer\.addEventListener\('scroll'/);
+  assert.match(panel, /readerScroll\.addEventListener\('scroll'/);
   assert.match(panel, /restoreSession\(\);/);
 });
 

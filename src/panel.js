@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.3.4';
+const PLUGIN_VERSION = '1.3.5';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -1611,6 +1611,20 @@ function renderNotebookPanel() {
 
 let resizeCleanup = null;
 
+const transientScrollbarTimers = new WeakMap();
+
+function bindTransientScrollbar(element) {
+  if (!element) return;
+  element.addEventListener('scroll', () => {
+    element.classList.add('is-scrolling');
+    window.clearTimeout(transientScrollbarTimers.get(element));
+    transientScrollbarTimers.set(element, window.setTimeout(() => {
+      element.classList.remove('is-scrolling');
+      transientScrollbarTimers.delete(element);
+    }, 650));
+  }, { passive: true });
+}
+
 function isNativeEditingTarget(target) {
   return Boolean(target?.matches?.('input, textarea, select, [contenteditable="true"]'));
 }
@@ -1712,6 +1726,7 @@ function render() {
 
   const treeScroll = root.querySelector('.tree-scroll');
   if (treeScroll) treeScroll.scrollTop = previousTreeScroll;
+  root.querySelectorAll('.tree-scroll, .viewer-scroll, .editor-scroll, .copilot-scroll, .code-viewer, .source-editor').forEach(bindTransientScrollbar);
 
   root.querySelectorAll('[data-resizer]').forEach((element) => {
     element.addEventListener('pointerdown', (event) => beginResize(element.dataset.resizer, event));

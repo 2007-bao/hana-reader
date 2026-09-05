@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.3.4 reader page with guarded resource access', async () => {
+test('manifest declares the v1.3.5 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.3.4');
+  assert.equal(manifest.version, '1.3.5');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -71,7 +71,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.3\.4'/);
+  assert.match(route, /ASSET_REVISION = '1\.3\.5'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -81,7 +81,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.3.4'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.3.5'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -181,11 +181,13 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.annotation-comment/);
   assert.match(css, /--reader-scroll-thumb/);
   assert.match(css, /--reader-middle-bg: #ffffff/);
-  assert.match(css, /--reader-side-bg: #eceeef/);
+  assert.match(css, /--reader-side-bg: #e7e9ec/);
   assert.match(css, /color: var\(--reader-heading\)/);
   assert.match(css, /background: #f5f6f7/);
   assert.match(css, /text-decoration: underline wavy #e49a55/);
   assert.match(css, /\.notebook-delete-prompt \{/);
+  assert.match(css, /scrollbar-color: transparent transparent/);
+  assert.match(panel, /bindTransientScrollbar/);
   assert.match(css, /text-decoration-skip-ink: none/);
 });
 

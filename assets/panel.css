@@ -22,8 +22,8 @@
   --reader-border: var(--border, rgba(48, 61, 72, 0.14));
   --reader-text: var(--text, #2c343b);
   --reader-muted: var(--text-secondary, #7c8790);
-  --reader-accent: var(--accent, #587d91);
-  --reader-accent-soft: var(--accent-light, rgba(88, 125, 145, 0.12));
+  --reader-accent: #446CCF;
+  --reader-accent-soft: rgba(137, 171, 227, 0.16);
   --reader-shadow: 0 16px 40px rgba(45, 60, 70, 0.08);
   --reader-middle-bg: color-mix(in srgb, #ffffff 88%, var(--reader-bg));
   --reader-side-bg: var(--reader-middle-bg);
@@ -31,13 +31,21 @@
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
   --reader-code-bg: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-middle-bg));
-  --maple-red: hsl(0 45% 53%);
-  --maple-orange: hsl(32 70% 46%);
-  --maple-yellow: hsl(45 74% 40%);
-  --maple-green: hsl(95 75% 32%);
-  --maple-cyan: hsl(156 75% 28%);
-  --maple-blue: hsl(193 94% 34%);
-  --maple-purple: hsl(260 20% 48%);
+  --maple-morning: #89ABE3;
+  --maple-aurora: #78C7D2;
+  --maple-ice: #78D1E5;
+  --maple-stream: #88C6ED;
+  --maple-sea: #1E90FF;
+  --maple-galaxy: #446CCF;
+  --maple-lake: #007BA7;
+  --maple-ocean: #006994;
+  --maple-red: var(--maple-sea);
+  --maple-orange: var(--maple-aurora);
+  --maple-yellow: var(--maple-stream);
+  --maple-green: var(--maple-lake);
+  --maple-cyan: var(--maple-ice);
+  --maple-blue: var(--maple-galaxy);
+  --maple-purple: var(--maple-ocean);
   --maple-gray: var(--reader-muted);
   --reader-code-keyword: var(--maple-purple);
   --reader-code-string: var(--maple-green);
@@ -51,13 +59,16 @@
 }
 
 body[data-hana-theme="dark"] {
-  --maple-red: hsl(0 44% 68%);
-  --maple-orange: hsl(20 40% 68%);
-  --maple-yellow: hsl(36 50% 68%);
-  --maple-green: hsl(130 32% 68%);
-  --maple-cyan: hsl(178 40% 64%);
-  --maple-blue: hsl(210 80% 72%);
-  --maple-purple: hsl(247 65% 82%);
+  --reader-accent: #89ABE3;
+  --reader-accent-soft: rgba(137, 171, 227, 0.18);
+  --maple-morning: #89ABE3;
+  --maple-aurora: #78C7D2;
+  --maple-ice: #78D1E5;
+  --maple-stream: #88C6ED;
+  --maple-sea: #1E90FF;
+  --maple-galaxy: #446CCF;
+  --maple-lake: #007BA7;
+  --maple-ocean: #006994;
   --reader-code-keyword: var(--maple-purple);
   --reader-code-string: var(--maple-green);
   --reader-code-comment: var(--maple-gray);

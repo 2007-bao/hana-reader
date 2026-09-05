@@ -126,5 +126,8 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /--reader-code-string: var\(--maple-green\)/);
   assert.match(css, /body\[data-hana-theme="dark"\]/);
   assert.match(css, /--reader-code-keyword: var\(--maple-purple\)/);
+  assert.match(css, /--maple-line-height-normal: 1\.45/);
+  assert.match(css, /--maple-line-height-tight: 1\.35/);
+  assert.match(css, /\.token-number,[\s\S]*font-family: var\(--reader-ui-font\)/);
   assert.match(css, /\.markdown-body \.hljs-string/);
 });

@@ -33,6 +33,7 @@
   --reader-code-bg: #f5f6f7;
   --reader-heading: #20242a;
   --reader-scroll-thumb: #9aa1aa;
+  --reader-reading-bg: #fcfaf4;
   --maple-morning: #9bc9ff;
   --maple-aurora: #59d2e5;
   --maple-ice: #73dff0;
@@ -81,6 +82,7 @@ body[data-hana-theme="dark"] {
   --reader-code-attr: var(--maple-morning);
   --reader-heading: #f0f2f5;
   --reader-scroll-thumb: #7d8792;
+  --reader-reading-bg: #28251f;
 }
 
 * {
@@ -2280,4 +2282,68 @@ body {
 .annotation-composer-popover textarea:focus {
   border: 0;
   box-shadow: none;
+}
+
+.annotation-underline,
+.annotation-comment {
+  text-decoration-skip-ink: none;
+  text-underline-offset: 2px;
+}
+
+.reader-panel,
+.reader-surface,
+.viewer-scroll,
+.editor-surface,
+.editor-scroll {
+  background: var(--reader-reading-bg, #fcfaf4);
+}
+
+.copilot-message-body {
+  font-size: 13px;
+}
+
+.copilot-message-label {
+  font-size: 11px;
+}
+
+.panel-view-button {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.notebook-tab {
+  font-size: 11px;
+}
+
+.notebook-title {
+  font-size: 13px;
+}
+
+.notebook-editor {
+  font-size: 14px;
+}
+
+.copilot-message-body .assistant-markdown {
+  max-width: none;
+  font-family: var(--reader-ui-font);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.copilot-message-body .assistant-markdown p,
+.copilot-message-body .assistant-markdown ul,
+.copilot-message-body .assistant-markdown ol {
+  margin: 0.35em 0;
+}
+
+.copilot-message-body .assistant-markdown h1,
+.copilot-message-body .assistant-markdown h2,
+.copilot-message-body .assistant-markdown h3,
+.copilot-message-body .assistant-markdown h4,
+.copilot-message-body .assistant-markdown h5,
+.copilot-message-body .assistant-markdown h6 {
+  margin: 0.45em 0 0.25em;
+  color: var(--reader-heading);
+  font-family: var(--reader-ui-font);
+  font-size: 1em;
 }

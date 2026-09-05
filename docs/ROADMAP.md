@@ -1,6 +1,6 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.3.0`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v1.3.1`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
 
@@ -63,6 +63,12 @@
 - 增加批注擦除、选区菜单自动消失、Enter 保存批注和 Shift + Enter 换行。
 - Copilot 改为 Enter 发送、Shift + Enter 换行，并收束为轻量对话气泡。
 - Notebook 支持 Markdown 导出与右键删除。
+
+## v1.3.1 修复
+
+- 修复批注气泡因浏览器选区丢失而无法打开的问题。
+- 禁用下划线避让字母下行部的行为，避免 `g` 等字母造成断线。
+- 修复 Notebook 导出触发方式，并保持右键删除入口可用。
 
 ## 下一阶段：优先级
 

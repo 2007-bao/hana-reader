@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.3.0';
+const PLUGIN_VERSION = '1.3.1';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -25,6 +25,7 @@ let editorGeneration = 0;
 let autoSaveTimer = null;
 let sessionSaveTimer = null;
 let activeSelectionViewer = null;
+let activeSelectionRect = null;
 let suppressEditorRemount = false;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
@@ -1164,9 +1165,8 @@ function currentSelectionRect() {
   return selection.getRangeAt(0).getBoundingClientRect();
 }
 
-function createSelectionToolbar(viewer) {
+function createSelectionToolbar(viewer, rect = currentSelectionRect()) {
   removeSelectionOverlay();
-  const rect = currentSelectionRect();
   if (!viewer || !rect) return;
   const toolbar = document.createElement('div');
   toolbar.className = 'selection-toolbar';
@@ -1182,7 +1182,7 @@ function createSelectionToolbar(viewer) {
 
 function showAnnotationComposer(viewer) {
   removeSelectionOverlay();
-  const rect = currentSelectionRect();
+  const rect = activeSelectionRect || currentSelectionRect();
   if (!viewer || !rect) return;
   const composer = document.createElement('div');
   composer.className = 'annotation-composer-popover';
@@ -1238,9 +1238,9 @@ function beginAnnotation(kind) {
     state.current.annotations = state.annotations;
     saveAnnotationsForCurrent();
     state.selection = null;
+    activeSelectionRect = null;
     removeSelectionOverlay();
-    state.status = kind === 'highlight' ? '已添加高亮' : '已添加下划线';
-    render();
+    state.status = kind === 'highlight' ? '已添加高亮' : '已添加下划线';    render();
     return;
   }
   state.annotationComposer = { kind: 'comment', selection: { ...state.selection } };
@@ -1265,6 +1265,7 @@ function eraseAnnotationsInSelection() {
     state.status = '已擦除选区内的批注和标记';
   }
   state.selection = null;
+  activeSelectionRect = null;
   removeSelectionOverlay();
   render();
 }
@@ -1272,6 +1273,7 @@ function eraseAnnotationsInSelection() {
 function cancelAnnotationComposer() {
   state.annotationComposer = null;
   state.selection = null;
+  activeSelectionRect = null;
   removeSelectionOverlay();
   hideAnnotationBubble();
   render();
@@ -1309,6 +1311,7 @@ function saveAnnotationComposer() {
   saveAnnotationsForCurrent();
   state.annotationComposer = null;
   state.selection = null;
+  activeSelectionRect = null;
   removeSelectionOverlay();
   state.status = '已添加批注';
   render();
@@ -1370,7 +1373,10 @@ function downloadNotebook() {
   const link = document.createElement('a');
   link.href = url;
   link.download = `${(notebook.title || '阅读笔记').replace(/[\\/:*?"<>|]/g, '_')}.md`;
+  link.style.display = 'none';
+  document.body.append(link);
   link.click();
+  link.remove();
   URL.revokeObjectURL(url);
   state.status = '已导出 Notebook';
 }
@@ -1429,6 +1435,7 @@ function retryCopilot() {
 function clearViewerSelection(viewer) {
   if (viewer && activeSelectionViewer !== viewer) return;
   state.selection = null;
+  activeSelectionRect = null;
   state.annotationComposer = null;
   removeSelectionOverlay();
   hideAnnotationBubble();
@@ -1452,7 +1459,18 @@ function captureViewerSelection(viewer) {
   }
   state.selection = anchor;
   activeSelectionViewer = viewer;
-  createSelectionToolbar(viewer);
+  const rect = currentSelectionRect();
+  if (!rect) {
+    clearViewerSelection(viewer);
+    return;
+  }
+  activeSelectionRect = {
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    bottom: rect.bottom,
+  };
+  createSelectionToolbar(viewer, activeSelectionRect);
 }
 
 function renderReaderPane() {
@@ -1515,7 +1533,8 @@ function normalizeAssistantText(value) {
 }
 
 function renderAssistantText(value) {
-  return `<p>${escapeHtml(normalizeAssistantText(value)).replace(/\n/g, '<br>')}</p>`;
+  const normalized = normalizeAssistantText(value);
+  return `<div class="assistant-markdown markdown-body">${renderMarkdown(normalized)}</div>`;
 }
 
 function renderCopilotPanel() {

@@ -10,19 +10,20 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.1.0 reader page with guarded resource access', async () => {
+test('manifest declares the v1.2.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.1.0');
+  assert.equal(manifest.version, '1.2.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write', 'model.sample']);
   assert.equal(manifest.contributes.page.route, '/page');
   assert.ok(manifest.ui.hostCapabilities.includes('resource.pick'));
+  assert.ok(manifest.ui.hostCapabilities.includes('resource.open'));
   assert.ok(manifest.dev.scenarios.some((scenario) => scenario.id === 'open-page'));
 });
 
@@ -70,7 +71,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.1\.0'/);
+  assert.match(route, /ASSET_REVISION = '1\.2\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -80,7 +81,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.1.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.2.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -99,17 +100,16 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /编辑/);
   assert.match(panelSource, /回撤/);
   assert.match(panelSource, /编辑自动保存/);
-  assert.match(panelSource, /reader-modebar/);
+  assert.match(panelSource, /reader-floating-toolbar/);
   assert.match(panelSource, /panel-resizer/);
   assert.match(panelSource, /treeIconSvg/);
   assert.match(panelSource, /NOTEBOOK_STORAGE_KEY/);
   assert.match(panelSource, /show-notebook/);
   assert.match(panelSource, /data-notebook/);
   assert.match(panelSource, /applyAnnotationMarks/);
-  assert.match(panelSource, /data-annotation-filter/);
-  assert.match(panelSource, /resolveVisibleAnnotations/);
+  assert.doesNotMatch(panelSource, /data-annotation-filter/);
+  assert.doesNotMatch(panelSource, /resolveVisibleAnnotations/);
   assert.match(panelSource, /copilot-submit/);
-  assert.match(panelSource, /prepareCopilotApply/);
   assert.match(panelSource, /aria-live="polite"/);
   assert.match(panelSource, /retry-save/);
   assert.match(panelSource, /discard-draft/);
@@ -122,16 +122,42 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /previousTreeScroll/);
   assert.match(panelSource, /scheduleSessionSave/);
   assert.match(panelSource, /toggle-left/);
-  assert.match(panelSource, /data-search-input/);
-  assert.match(panelSource, /open-search-result/);
+  assert.doesNotMatch(panelSource, /data-search-input/);
+  assert.doesNotMatch(panelSource, /open-search-result/);
   assert.match(panelSource, /handleGlobalKeydown/);
-  assert.match(panelSource, /RECENT_FILES_STORAGE_KEY/);
+  assert.doesNotMatch(panelSource, /RECENT_FILES_STORAGE_KEY/);
   assert.match(panelSource, /toggle-right/);
   assert.match(panelSource, /pointerdown/);
+  assert.match(panelSource, /resources\.open/);
+  assert.match(panelSource, /annotation-comment/);
+  assert.match(panelSource, /showAnnotationBubble/);
+  assert.match(panelSource, /data-annotation-action/);
   assert.doesNotMatch(panelSource, /<header class=\"topbar\"/);
   assert.match(css, /grid-template-columns: var\(--left-panel-width\)/);
   assert.match(css, /height: 100vh/);
   assert.match(css, /overflow: hidden/);
+});
+
+test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local', async () => {
+  const panel = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
+  const annotationEngine = await fs.readFile(path.join(root, 'src/annotation-engine.js'), 'utf8');
+  const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
+
+  assert.match(panel, /function handleGlobalKeydown/);
+  assert.match(panel, /key === 'z'/);
+  assert.match(panel, /annotationUndoAt/);
+  assert.match(panel, /current\?\.undoAt/);
+  assert.match(panel, /state\.editing \|\| isNativeEditingTarget/);
+  assert.match(panel, /data-action="show-ai"/);
+  assert.match(panel, /data-action="show-notebook"/);
+  assert.match(panel, /data-notebook/);
+  assert.doesNotMatch(panel, /data-annotation-filter/);
+  assert.doesNotMatch(panel, /annotation-sidebar/);
+  assert.match(annotationEngine, /annotation-comment/);
+  assert.match(annotationEngine, /dataset\.annotationNote/);
+  assert.match(css, /\.reader-floating-toolbar/);
+  assert.match(css, /\.annotation-comment/);
+  assert.match(css, /text-decoration: underline wavy #e49a55/);
 });
 
 test('reader persists and restores the last workspace, file, and scroll position', async () => {
@@ -165,15 +191,15 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /\.code-viewer \.hljs-keyword/);
   assert.match(css, /font-family: "Maple Mono"/);
   assert.match(css, /--maple-purple/);
-  assert.match(css, /--maple-sea: #1E90FF/);
-  assert.match(css, /--maple-galaxy: #446CCF/);
-  assert.match(css, /--maple-morning: #89ABE3/);
-  assert.match(css, /--maple-stream: #88C6ED/);
+  assert.match(css, /--maple-sea: #2f80ed/);
+  assert.match(css, /--maple-galaxy: #2356d8/);
+  assert.match(css, /--maple-morning: #9bc9ff/);
+  assert.match(css, /--maple-stream: #5ea9ff/);
   assert.match(css, /--reader-code-plain: #20242a/);
   assert.match(css, /h1[\s\S]*color: var\(--maple-galaxy\)/);
-  assert.match(css, /h2[\s\S]*color: var\(--maple-morning\)/);
-  assert.match(css, /h3[\s\S]*color: var\(--maple-stream\)/);
-  assert.match(css, /h4[\s\S]*color: var\(--maple-ice\)/);
+  assert.match(css, /h2[\s\S]*color: var\(--maple-sea\)/);
+  assert.match(css, /h3[\s\S]*color: var\(--reader-text\)/);
+  assert.match(css, /h4[\s\S]*color: var\(--reader-text\)/);
   assert.match(css, /--reader-code-string: var\(--maple-lake\)/);
   assert.match(css, /border-left: 3px solid var\(--maple-galaxy\)/);
   assert.match(css, /tree-row\.directory/);

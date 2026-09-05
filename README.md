@@ -1,108 +1,90 @@
 # Hana Reader
 
-一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
+一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.1.0` · 阅读、搜索、Copilot、批注与 Notebook 工作台
+> 当前版本：`v1.2.0` · 三栏阅读、编辑、AI 辅助、Notebook 与正文批注
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
 ## 项目定位
 
-Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—理解—记录—审阅—修改”的人机协作工作台：
+Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—记录—审阅—修改”的轻量工作台：
 
-- 左侧浏览项目文件
-- 中间阅读、编辑和预览文本
-- 右侧接入 AI Copilot 或记录个人 Notebook
-- 选中文本批注、高亮、下划线和审阅状态
+- 左侧只负责浏览当前文件夹；
+- 中间负责阅读、编辑和安全预览；
+- 右侧只保留 AI 辅助与 Notebook；
+- 批注直接落在正文中，不把阅读内容挪到侧栏。
 
-## 当前已完成
+所有用户文件通过 Hana ResourceIO 访问；批注、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
 
-### 阅读与编辑
+## v1.2.0 本轮完成
 
-- 选择本地文件夹并延迟展开目录树
-- 阅读 Markdown、JSON、HTML、JavaScript、TypeScript、Python 等文本文件
-- Markdown 安全渲染、GFM 表格、任务列表和链接
-- 本地 Milkdown Markdown 编辑器
-- 多类型文本安全写回
-- 版本冲突检测、远端/本地处理和撤销
-- 安全 HTML 预览
-- 单文件 2 MB 读取上限、编辑内容 512 KB 上限
+### 工作区与视觉
 
-### Maple 视觉与布局
+- 左侧文件树移除搜索、最近打开和多余说明，仅保留选择、刷新、打开目录和折叠。
+- 文件夹使用黄色闭合 / 展开图标，Markdown、README、JSON、压缩包、代码和样式文件使用类型图标。
+- 中间阅读区随窗口自适应，左右留白统一；只读 / 编辑控件悬浮在阅读区右上方。
+- 标题只保留 h1 / h2 的 Hana 蓝色层级，h3-h6 回到正文色；代码、引用和分隔线使用统一的明亮 Hana 蓝。
+- 右侧切换收束为“AI 辅助”和“笔记本”，不再显示 AI 预设、上下文档位或批注列表。
 
-- Maple Mono Regular / Italic 字体
-- Maple 蓝色语义色板
-- 标题层级色阶：银河蓝 → 清晨蓝 → 溪水蓝 → 冰蓝 → 极浅青蓝
-- 代码内容以深色为主，仅保留少量语义高亮
-- 引用和代码块左侧竖线使用银河蓝
-- 三栏布局，左右栏可折叠、拖动调整宽度
-- 文件树使用文件/文件夹及文件类型图标
-- 文件夹使用浅色层级竖线表达父子关系，不使用展开箭头
-- 左侧文件树内部紧凑，不同文件夹之间适度分组
-- 文件树和阅读区滚动位置保持
+### 阅读、编辑与回撤
 
-### Copilot
+- 支持 Markdown、JSON、HTML、JavaScript、TypeScript、Python 等文本阅读。
+- Markdown 使用本地 Milkdown 所见即所得编辑器；其他文本使用源码编辑器。
+- 自动保存、版本冲突保护、安全 HTML 预览和 `512 KB` 编辑上限保持不变。
+- 编辑态 `Ctrl/Cmd + Z` 使用编辑器原生撤销；只读态按最近时间撤销最近一次批注操作或最近一次安全写回。
+- 选择文件夹后可通过本地目录入口打开系统文件资源管理器。
 
-- 通过 Hana `model:sample-text` 接入实际文本模型
-- 仅发送用户明确勾选的当前文件或选中文本
-- 支持总结、解释、知识点提取和 Markdown 审阅快捷任务
-- 按文件保存对话历史，支持失败重试和上下文长度控制
-- 修改建议必须经过原文匹配、预览确认后才应用回 Markdown
+### 正文批注
 
-### Markdown 批注与审阅
+- 选中文本后，在正文下方的悬浮菜单中添加批注、高亮或下划线。
+- 批注显示为正文橙色波浪下划线，悬浮时显示气泡；高亮和下划线仍保存在本地。
+- 批注使用文本锚点恢复，默认不向普通 Markdown 注入私有语法，也不再依赖右侧批注面板。
 
-- 选中文本后添加批注、高亮或下划线
-- 批注支持回复、编辑、删除、完成/重新打开、筛选、批量完成和最近一次操作撤销
-- 批注侧栏支持定位原文，并使用文本锚点在重新打开后恢复
-- 批注存于本机浏览器，不向普通 Markdown 注入私有语法
+### AI 辅助
+
+- 通过 Hana `model:sample-text` 接入文本模型。
+- 默认只提交当前打开的文本文件和当前对话历史，不再要求用户配置上下文选项。
+- 支持直接提问、失败重试和按文件保存对话历史；模型不可用时不影响本地阅读与编辑。
 
 ### Notebook
 
-- 多份 Notebook、标题编辑、切换、新建和删除
-- 引用当前文件或选中文本
-- 从批注或 Copilot 回复一键生成笔记
-- Markdown 预览、下载导出和带版本校验的安全写回
-- 内容独立于当前文件，使用浏览器本地存储自动保存
+- 右侧 Notebook 保持极简：选择、新建、改名、直接编辑、导出 Markdown。
+- 多份 Notebook 独立保存在浏览器本地，不改写当前阅读文件。
 
-### 离线搜索与工作区维护
+## 保留的服务端能力
 
-- 在当前已选择文件夹内执行受限全文搜索，不依赖新的 Hana 宿主 API
-- 支持大小写选项、相对路径、行号/列号、预览片段和结果高亮
-- 搜索结果可直接打开文件，并定位到代码行或 Markdown 近似位置
-- 搜索边界：最多扫描 500 个文件、单文件 1 MB、总读取 8 MB、最多返回 100 个结果
-- 最近打开文件保存在浏览器本地，可在当前工作区快速回到已读文件
-- `Ctrl/Cmd + Shift + F` 打开搜索，`Escape` 关闭面板，`Ctrl/Cmd + S` 触发编辑保存
-- 文件树、工具切换和搜索结果补充了基础无障碍语义与键盘焦点样式
+`routes/ui.js` 仍保留受限 `POST /resources/search`，供未来重新接入搜索体验或其他受控工作流；本轮不在左侧提供搜索入口，也不做常驻索引。服务端边界为最多 500 个文件、单文件 1 MB、总读取 8 MB、最多 100 个结果。
 
-## 当前剩余候选能力
+## 当前限制与后续方向
 
-当前仍可离线推进的方向包括跨文件问答前的检索摘要、多标签阅读历史、批注导入/导出、sidecar 导入导出、Diff 合并工作流、长文档虚拟化和 CSS 清理。Git 状态与跨设备协作同步仍需要额外的宿主能力或明确的文件协议。
-完整清单与明确限制见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
+- Copilot 依赖 Hana `model.sample` 与可用的 utility 文本模型。
+- 批注、Notebook、会话位置和 Copilot 历史尚未做跨设备 sidecar 同步。
+- Notebook 目前只能导出本地内容，不负责创建新的 ResourceIO 文件。
+- 后续优先考虑批注 / Notebook 导入导出、轻量多标签、长文档分段渲染和死 CSS 清理。
+- `knob-motion-lab/` 是其他实验目录，不属于本插件范围。
 
 ## 给下一次 AI / 新对话的交接说明
 
-新对话开始后，先按以下顺序阅读，不要直接猜测项目状态：
+开始工作前按顺序阅读：
 
-1. 本文件 `README.md`：项目定位、当前版本和交接信息
-2. [`docs/NEXT_SESSION_HANDOFF.md`](docs/NEXT_SESSION_HANDOFF.md)：当前阶段、边界、任务入口和验收要求
-3. [`docs/ROADMAP.md`](docs/ROADMAP.md)：后续功能清单
-4. [`COLLABORATION.md`](COLLABORATION.md)：分支、提交、PR 和资料边界
-5. `src/panel.js`：页面状态、Copilot、批注、Notebook、三栏布局和文件树
-6. `src/annotation-engine.js`、`src/annotation-store.js`：批注定位与本地持久化
-7. `src/notebook-store.js`：多份 Notebook、迁移和引用
-8. `assets/panel.css`：Maple 视觉与三类右侧工作流样式
-9. `src/markdown-engine.js`：Markdown 渲染、标题编号和安全扩展入口
-10. `src/markdown-editor.js`：Markdown 编辑器
-11. `routes/ui.js`：页面壳、ResourceIO 和 Copilot route
-12. `tests/`：当前回归测试和验证方式
+1. `README.md`：当前版本、范围和安全边界；
+2. `docs/NEXT_SESSION_HANDOFF.md`：本阶段交接与验收；
+3. `docs/ROADMAP.md`：已完成与后续路线；
+4. `COLLABORATION.md`：分支、提交和资料边界；
+5. `src/panel.js`：页面状态、三栏布局、编辑、Copilot、批注和 Notebook；
+6. `src/annotation-engine.js`、`src/annotation-store.js`：正文标记与本地批注；
+7. `src/notebook-store.js`：Notebook 存储；
+8. `assets/panel.css`：视觉与布局；
+9. `routes/ui.js`：页面壳、ResourceIO、搜索和 Copilot 路由；
+10. `tests/`：结构、渲染、写回和路由回归。
 
-下一位 AI 处理代码前，应先确认：
+每次修改前确认：
 
-- 当前分支和 `git status`
-- 不要纳入无关目录 `knob-motion-lab/`
-- 先阅读相关源文件和测试，再修改
-- 修改后运行 `npm test`
-- 通过测试后再提交、推送和发布
+- 当前分支和 `git status`；
+- 不查看、修改、提交或打包 `knob-motion-lab/`；
+- 修改后运行 `npm test`；
+- 未经负责人确认，不 push、建 PR、合并或发布标签。
 
 ## 开发与验证
 
@@ -111,48 +93,35 @@ npm install
 npm test
 ```
 
-开发时：
-
-1. 在 Hana 设置 → 插件中开启插件开发工具权限。
-2. 使用插件 dev loop 安装本目录源码。
-3. 修改 `src/`、`assets/` 或 `routes/` 后运行 `npm run build`。
-4. reload 插件并通过诊断面板确认页面状态。
-
-也可以把插件文件夹拖入 Hana 设置 → 插件进行本地安装。
+`npm test` 会依次执行版本一致性检查、构建和顺序测试。开发时可在 Hana 设置 → 插件中开启插件开发工具，使用 dev loop 安装本目录并 reload。
 
 ## 目录结构
 
 ```text
-manifest.json       插件声明与权限
+manifest.json       插件声明、页面和宿主能力
 package.json        构建、依赖与测试脚本
-routes/ui.js        Page shell、ResourceIO 搜索/读取与安全写回路由
-src/                可维护的前端源代码与渲染内核
-assets/             iframe 页面静态资源和构建产物
-  panel.js          构建后的阅读工作台界面
-  panel.css         Maple 视觉与布局样式
+routes/ui.js        Page shell、ResourceIO 读写/搜索与 Copilot route
+src/                可维护的前端源码与渲染内核
+assets/             iframe 静态资源和构建产物
+  panel.js          构建后的阅读工作台
+  panel.css         Hana 蓝视觉与三栏布局
   hana-bridge.js    轻量 SDK 协议适配
   fonts/            Maple Mono 字体
-docs/               技术记录、视觉测试与路线文档
-tests/              manifest、渲染、编辑器和写回测试
+docs/               技术记录、路线和交接文档
+tests/              manifest、渲染、编辑器和路由回归
 COLLABORATION.md    GitHub 协作约定
 ```
 
 ## 权限与安全边界
 
-- 浏览器不直接读取本地路径，用户资源通过服务端 `ctx.resources` 访问。
-- 读取、写回和版本校验均通过 ResourceIO 路由。
-- 写回必须携带读取时的 `version` 和内容哈希，拒绝过期内容。
-- Markdown 原始 HTML 默认按文本处理，HTML 预览使用隔离 sandbox 和净化。
+- 浏览器不直接读取本地路径，用户资源通过 Hana ResourceIO 访问。
+- 读取、写回和版本校验均通过服务端路由完成。
+- 写回携带读取时的 `version` 和内容哈希，拒绝过期内容。
+- Markdown 原始 HTML 默认按文本处理；HTML 预览使用隔离 sandbox 和净化。
 - 不提交 API Key、Cookie、个人文件、会话导出或真实项目内容。
 
 ## GitHub 工作流
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前稳定基线：`main` / `v0.9.0`；本地完成目标：`feat/offline-search-and-polish` / `v1.1.0`。
-
-上一阶段已完成 PR：
-
-- PR #30：Maple 文件树图标、层级线、滚动保持和蓝色视觉体系
-
-后续候选功能和边界以 `docs/ROADMAP.md` 为准。`knob-motion-lab/` 是其他对话的旋钮实验目录，不属于本插件。
+当前本地目标：`feat/reader-visual-simplification` / `v1.2.0`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

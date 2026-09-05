@@ -87,7 +87,7 @@ kind: event
 - Page UI 使用 `full-access`，但具体权限仍应按需声明。
 - 用户文件读取统一走服务端 `ctx.resources` / ResourceIO。
 - `assets/` 只放公开静态资源，不放 API Key、Cookie、用户文件或运行时私有数据。
-- v1.1.0 声明 `resource.read`、`resource.write` 和 `model.sample`；搜索、阅读和写回仍只通过服务端 ResourceIO 路由，批注、Notebook、最近文件默认保存在本机而不改写原文。
+- v1.2.0 声明 `resource.read`、`resource.write` 和 `model.sample`，并在 UI host capabilities 中声明 `resource.open`；阅读、写回和打开目录仍交给 Hana ResourceIO / host，批注与 Notebook 默认保存在本机而不改写原文。
 
 ## 7. 版本记录
 
@@ -116,3 +116,4 @@ kind: event
 - `v0.9.0`：右侧支持 Copilot / Notebook 切换，Notebook 内容独立本地自动保存。
 - `v1.0.0`：接入 Hana utility Copilot，完成选区批注/高亮/下划线审阅层，并增强为多份 Notebook、引用、预览、导出和安全写回。
 - `v1.1.0`：加入受限全文搜索、搜索结果定位、最近打开文件、键盘快捷键和基础无障碍语义维护。
+- `v1.2.0`：精简文件树与右栏，加入 `resource.open` 目录入口、自适应阅读区、悬浮读写控件、正文批注气泡和多场景 Ctrl-Z。

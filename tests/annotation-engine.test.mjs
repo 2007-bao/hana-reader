@@ -47,11 +47,14 @@ test('annotation engine restores text anchors and wraps non-overlapping ranges',
     const anchor = selectionAnchor(article, selection);
     const rendered = applyAnnotationMarks(article, [
       { id: 'world', kind: 'highlight', quote: 'world', prefix: 'Hello ', suffix: ' and Hana.' },
+      { id: 'hana', kind: 'comment', quote: 'Hana', note: '记下这个概念。', prefix: 'world and ', suffix: '.' },
       { id: 'second', kind: 'underline', quote: 'Second paragraph.' },
     ]);
     document.body.dataset.anchor = anchor?.quote || '';
     document.body.dataset.rendered = String(rendered.size);
     document.body.dataset.highlight = String(Boolean(article.querySelector('[data-annotation-id="world"]')));
+    document.body.dataset.comment = String(Boolean(article.querySelector('.annotation-comment[data-annotation-id="hana"]')));
+    document.body.dataset.note = article.querySelector('[data-annotation-id="hana"]')?.dataset.annotationNote || '';
     document.body.dataset.underline = String(Boolean(article.querySelector('[data-annotation-id="second"]')));
   `, 'utf8');
   execFileSync(process.execPath, [
@@ -77,8 +80,10 @@ test('annotation engine restores text anchors and wraps non-overlapping ranges',
     ], { encoding: 'utf8', timeout: 30000, windowsHide: true });
 
     assert.match(dom, /data-anchor="world"/);
-    assert.match(dom, /data-rendered="2"/);
+    assert.match(dom, /data-rendered="3"/);
     assert.match(dom, /data-highlight="true"/);
+    assert.match(dom, /data-comment="true"/);
+    assert.match(dom, /data-note="记下这个概念。"/);
     assert.match(dom, /data-underline="true"/);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });

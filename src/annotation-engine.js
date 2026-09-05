@@ -115,10 +115,14 @@ function wrapTextRange(root, start, end, annotation) {
     if (localEnd - localStart < target.nodeValue.length) target.splitText(localEnd - localStart);
 
     const wrapper = document.createElement(annotation.kind === 'highlight' ? 'mark' : 'span');
-    wrapper.className = annotation.kind === 'underline' ? 'annotation-underline' : 'annotation-highlight';
+    wrapper.className = annotation.kind === 'underline'
+      ? 'annotation-underline'
+      : annotation.kind === 'comment'
+        ? 'annotation-comment'
+        : 'annotation-highlight';
     wrapper.dataset.annotationId = annotation.id;
     wrapper.dataset.annotationKind = annotation.kind || 'comment';
-    wrapper.title = annotation.note ? `批注：${annotation.note}` : '打开批注';
+    wrapper.dataset.annotationNote = annotation.note || '';
     target.parentNode.replaceChild(wrapper, target);
     wrapper.append(target);
     wrapped = true;

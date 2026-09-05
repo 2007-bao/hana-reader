@@ -5,7 +5,7 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.4.3`
+- 当前版本：`v1.4.4`
 - 稳定基线：`main` / `v0.9.0`
 - 当前目标：完成 Quiet 读写旋钮集成后的开发环境手测与本地发布包验收
 - `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建

@@ -2640,7 +2640,7 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .reader-mode-knob {
   display: block;
   flex: 0 0 auto;
-  width: clamp(168px, 18vw, 198px);
+  width: clamp(56px, 6vw, 64px);
   margin: 0;
   padding: 0;
   border: 0;
@@ -2675,12 +2675,25 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   pointer-events: none;
 }
 
+.reader-surface {
+  position: relative;
+}
+
+.reader-surface > .reader-mode-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  z-index: 6;
+  margin: 0;
+}
+
+.reader-surface > .viewer-scroll,
 .editor-surface .editor-scroll {
-  padding-top: 88px;
+  padding-top: 56px;
 }
 
 @media (max-width: 560px) {
   .reader-mode-knob {
-    width: 174px;
+    width: 56px;
   }
 }

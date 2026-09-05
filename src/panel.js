@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.4.3';
+const PLUGIN_VERSION = '1.4.4';
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
@@ -32,6 +32,7 @@ let readerModeTransitionTimer = 0;
 let readerModeTransitionTarget = null;
 let readerModeTransitionSource = null;
 let readerModeTransitionToken = 0;
+const readerModeKnobBindings = new WeakSet();
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -1014,7 +1015,10 @@ function bindReaderModeKnob() {
   const object = root?.querySelector('.reader-mode-knob-art');
   if (!object) return;
   const sync = () => setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
-  object.addEventListener('load', sync, { once: true });
+  if (!readerModeKnobBindings.has(object)) {
+    object.addEventListener('load', sync);
+    readerModeKnobBindings.add(object);
+  }
   sync();
 }
 
@@ -1673,7 +1677,7 @@ function renderReaderPane() {
     const conflictNotice = current.conflict
       ? `<div class="conflict-notice" role="alert"><strong>远端文件已变化</strong><p>本地草稿仍保留，未自动覆盖远端内容。你可以载入远端版本，或明确确认用本地草稿覆盖。</p><div class="conflict-actions"><button class="button ghost" data-action="reload-conflict" ${typeof current.conflict.content === 'string' ? '' : 'disabled'}>载入远端版本</button><button class="button danger" data-action="overwrite-conflict">确认覆盖远端</button><button class="button tiny" data-action="discard-draft">放弃草稿</button></div></div>`
       : '';
-    return `<div class="reader-surface editor-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span>${current.saveFailed ? '<button class="button danger tiny" data-action="discard-draft">放弃草稿</button>' : ''}${renderReaderModeKnob()}</div>${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
+    return `<div class="reader-surface editor-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${current.saveFailed ? '<button class="button danger tiny" data-action="discard-draft">放弃草稿</button>' : ''}${renderReaderModeKnob()}</div>${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
   }
 
   const body = current.binary
@@ -1691,7 +1695,7 @@ function renderReaderPane() {
     ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '源码' : '预览'}</button>`
     : '';
   const modeControl = canEdit ? renderReaderModeKnob() : '<span class="reader-mode-label">只读</span>';
-  return `<div class="reader-surface"><div class="viewer-scroll"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${htmlAction}${editorAction}${modeControl}</div>${body}</div></div>`;
+  return `<div class="reader-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${htmlAction}${editorAction}${modeControl}</div><div class="viewer-scroll">${body}</div></div>`;
 }
 
 function renderCopilot() {
@@ -1827,6 +1831,7 @@ function render() {
   suppressEditorRemount = false;
   const editorCleanup = remountSession ? destroyMarkdownEditor() : null;
   const previousTreeScroll = root.querySelector('.tree-scroll')?.scrollTop || 0;
+  const previousReaderModeKnob = root.querySelector('.reader-mode-knob-art');
   const nodeIndex = new Map();
   const tree = renderTree();
   // renderTreeNode populates its local index during markup creation; rebuild the lookup here.
@@ -1851,6 +1856,8 @@ function render() {
     </div>
   </div>`;
 
+  const nextReaderModeKnob = root.querySelector('.reader-mode-knob-art');
+  if (previousReaderModeKnob && nextReaderModeKnob) nextReaderModeKnob.replaceWith(previousReaderModeKnob);
   bindReaderModeKnob();
   const article = root.querySelector('.viewer-scroll .markdown-body');
   if (article && state.current?.language === 'markdown') {

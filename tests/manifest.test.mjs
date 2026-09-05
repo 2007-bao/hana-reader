@@ -150,12 +150,16 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /state\.editing \|\| isNativeEditingTarget/);
   assert.match(panel, /data-action="show-ai"/);
   assert.match(panel, /data-action="show-notebook"/);
+  assert.match(panel, /state\.leftCollapsed \? '展开文件树'/);
+  assert.match(panel, /data-action="toggle-left"/);
   assert.match(panel, /data-notebook/);
   assert.doesNotMatch(panel, /data-annotation-filter/);
   assert.doesNotMatch(panel, /annotation-sidebar/);
   assert.match(annotationEngine, /annotation-comment/);
   assert.match(annotationEngine, /dataset\.annotationNote/);
   assert.match(css, /\.reader-floating-toolbar/);
+  assert.doesNotMatch(css, /\.file-panel\.is-collapsed \.panel-heading > div:first-child/);
+  assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);
   assert.match(css, /\.annotation-comment/);
   assert.match(css, /text-decoration: underline wavy #e49a55/);
 });

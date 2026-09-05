@@ -284,7 +284,6 @@ select:focus-visible {
   padding: 12px 4px;
 }
 
-.file-panel.is-collapsed .panel-heading > div:first-child,
 .file-panel.is-collapsed .panel-heading .panel-tool,
 .file-panel.is-collapsed .tree-scroll {
   display: none;

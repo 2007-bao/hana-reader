@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
 
-> 当前版本：`0.8.5` · Maple 蓝色视觉、文件树图标与滚动保持
+> 当前版本：`0.9.0` · Maple 阅读工作台与右侧 Notebook
 
 ## 当前目标
 
@@ -68,4 +68,6 @@ GitHub 仓库公开，但暂不接入 GitHub API。GitHub 只用于保存源码�
 - S2：所见即所得 Markdown 编辑器技术验证（已完成）
 - S3：多类型安全编辑、写回、冲突检测、Diff 与撤销（当前）
 - S4：代码编辑器与安全 HTML 预览
-- 后续：全文搜索、跨文件问答、Git 状态等按真实痛点增加
+- 后续：AI Copilot、Markdown 扩展批注与审阅、全文搜索、跨文件问答、Git 状态等按真实痛点增加
+
+完整的后续功能清单见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。

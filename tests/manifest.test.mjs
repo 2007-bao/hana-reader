@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.8.5 reader page with guarded resource access', async () => {
+test('manifest declares the v0.9.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.8.5');
+  assert.equal(manifest.version, '0.9.0');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -57,12 +57,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.8\.5'/);
+  assert.match(route, /ASSET_REVISION = '0\.9\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/write'/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0.8.5'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0.9.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -84,6 +84,9 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /reader-modebar/);
   assert.match(panelSource, /panel-resizer/);
   assert.match(panelSource, /treeIconSvg/);
+  assert.match(panelSource, /NOTEBOOK_STORAGE_KEY/);
+  assert.match(panelSource, /show-notebook/);
+  assert.match(panelSource, /data-notebook/);
   assert.match(panelSource, /tree-nested.*nested-depth/);
   assert.match(panelSource, /fileIconType/);
   assert.match(panelSource, /previousTreeScroll/);

@@ -1610,6 +1610,63 @@ body {
   color: var(--reader-muted);
 }
 
+.copilot-switcher {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--reader-soft);
+}
+
+.panel-view-button {
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 7px;
+  color: var(--reader-muted);
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.panel-view-button.active {
+  color: var(--reader-accent);
+  background: var(--reader-card);
+  box-shadow: 0 1px 3px rgba(32, 36, 42, 0.1);
+}
+
+.notebook-wrap {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.notebook-editor {
+  min-height: 220px;
+  flex: 1 1 auto;
+  resize: none;
+  border: 1px solid var(--reader-border);
+  border-radius: 9px;
+  padding: 12px;
+  color: var(--reader-text);
+  background: color-mix(in srgb, var(--reader-card) 72%, var(--reader-soft));
+  font: 13px/1.75 var(--reader-ui-font);
+  outline: none;
+}
+
+.notebook-editor:focus {
+  border-color: var(--reader-accent);
+  box-shadow: 0 0 0 3px var(--reader-accent-soft);
+}
+
+.notebook-footer {
+  color: var(--reader-muted);
+  font-size: 10px;
+}
+
 @media (max-width: 1020px) {
   .workspace {
     grid-template-columns: var(--left-panel-width) 8px minmax(0, 1fr) 0 0;

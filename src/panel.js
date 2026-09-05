@@ -5,10 +5,11 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.8.5';
+const PLUGIN_VERSION = '0.9.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
+const NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v1';
 
 let sequence = 0;
 let activeMarkdownEditor = null;
@@ -151,6 +152,8 @@ const state = {
   rightWidth: 288,
   leftCollapsed: false,
   rightCollapsed: false,
+  rightView: 'copilot',
+  notebookText: '',
   status: '请选择一个文件夹开始阅读',
   error: '',
 };
@@ -183,6 +186,24 @@ function saveLayout() {
 }
 
 Object.assign(state, readLayout());
+
+function readNotebook() {
+  try {
+    return window.localStorage.getItem(NOTEBOOK_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function saveNotebook() {
+  try {
+    window.localStorage.setItem(NOTEBOOK_STORAGE_KEY, state.notebookText);
+  } catch {
+    // A restricted or full storage quota must never break note taking.
+  }
+}
+
+state.notebookText = readNotebook();
 
 function readSavedSession() {
   try {
@@ -894,15 +915,16 @@ function renderCopilot() {
   if (state.rightCollapsed) {
     return '<aside class="copilot-panel is-collapsed"><button class="panel-collapse" data-action="toggle-right" title="展开阅读助手">‹</button></aside>';
   }
+  const notebook = state.rightView === 'notebook';
   return `<aside class="copilot-panel">
-    <div class="copilot-heading"><span class="copilot-orb">✦</span><div><h2>Copilot</h2><p>阅读助手</p></div><span class="coming-badge">M1</span><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
-    <div class="copilot-empty">
+    <div class="copilot-heading"><span class="copilot-orb">${notebook ? '▤' : '✦'}</span><div><h2>${notebook ? 'Notebook' : 'Copilot'}</h2><p>${notebook ? '阅读笔记' : '阅读助手'}</p></div><div class="copilot-switcher"><button class="panel-view-button ${notebook ? '' : 'active'}" data-action="show-copilot">Copilot</button><button class="panel-view-button ${notebook ? 'active' : ''}" data-action="show-notebook">笔记本</button></div><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
+    ${notebook ? `<div class="notebook-wrap"><textarea class="notebook-editor" data-notebook placeholder="记录阅读心得、重要知识点或待办……">${escapeHtml(state.notebookText)}</textarea><div class="notebook-footer">自动保存 · 独立于当前文件</div></div>` : `<div class="copilot-empty">
       <div class="copilot-spark">✧</div>
       <h3>先读，再问</h3>
       <p>下一阶段将支持总结当前文件、解释选中内容，以及提取公式和关键概念。</p>
     </div>
     <div class="copilot-rule"></div>
-    <div class="copilot-note"><span>⌁</span> AI 上下文将由你明确选择，不默认读取整个项目。</div>
+    <div class="copilot-note"><span>⌁</span> AI 上下文将由你明确选择，不默认读取整个项目。</div>`}
   </aside>`;
 }
 
@@ -987,6 +1009,14 @@ function render() {
         saveLayout();
         render();
       }
+      if (action === 'show-copilot') {
+        state.rightView = 'copilot';
+        render();
+      }
+      if (action === 'show-notebook') {
+        state.rightView = 'notebook';
+        render();
+      }
       if (action === 'edit-file') startEditing();
       if (action === 'read-mode') requestTransition('切换为只读', stopEditing);
       if (action === 'toggle-html-preview') {
@@ -996,6 +1026,14 @@ function render() {
       if (action === 'undo-write') undoLastWrite();
     });
   });
+
+  const notebookEditor = root.querySelector('[data-notebook]');
+  if (notebookEditor) {
+    notebookEditor.addEventListener('input', () => {
+      state.notebookText = notebookEditor.value;
+      saveNotebook();
+    });
+  }
 
   const viewer = root.querySelector('.viewer-scroll');
   if (viewer && state.current) {

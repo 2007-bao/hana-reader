@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 const MAX_READ_BYTES = 2 * 1024 * 1024;
-const ASSET_REVISION = '0.8.5';
+const ASSET_REVISION = '0.9.0';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));

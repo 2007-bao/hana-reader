@@ -26,7 +26,7 @@
   --reader-accent-soft: rgba(47, 115, 230, 0.14);
   --reader-shadow: 0 16px 40px rgba(45, 60, 70, 0.08);
   --reader-middle-bg: #ffffff;
-  --reader-side-bg: #f3efe7;
+  --reader-side-bg: #f7f7f5;
   --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
@@ -2501,21 +2501,21 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .assistant-switcher {
   min-height: 46px;
   padding: 8px 12px;
-  border-bottom-color: #e3dbcf;
-  background: #f3efe7;
+  border-bottom-color: #e5e6e8;
+  background: #f7f7f5;
 }
 
 .assistant-switcher .panel-view-button {
   border-radius: 8px;
   padding: 6px 10px;
-  color: #8a8175;
+  color: #7d838b;
   font-size: 12px;
 }
 
 .assistant-switcher .panel-view-button.active {
   color: #3f6fae;
-  background: #fffdf9;
-  box-shadow: 0 1px 3px rgba(104, 88, 68, 0.08);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(48, 56, 68, 0.06);
 }
 
 .file-panel,
@@ -2526,14 +2526,14 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .notebook-wrap {
   gap: 12px;
   padding: 14px;
-  background: color-mix(in srgb, #f3efe7 82%, var(--reader-middle-bg));
+  background: #f7f7f5;
 }
 
 .notebook-list {
   gap: 6px;
   align-items: center;
   padding: 0 0 8px;
-  border-bottom: 1px solid #e3dbcf;
+  border-bottom: 1px solid #e5e6e8;
 }
 
 .notebook-tab {
@@ -2541,7 +2541,7 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   border-color: transparent;
   border-radius: 8px;
   padding: 7px 10px;
-  color: #8a8175;
+  color: #7d838b;
   background: transparent;
   font-size: 12px;
 }
@@ -2549,9 +2549,9 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .notebook-tab:hover,
 .notebook-tab.active {
   color: #3f6fae;
-  border-color: #e1d8ca;
-  background: #fffdf9;
-  box-shadow: 0 1px 3px rgba(104, 88, 68, 0.08);
+  border-color: #dfe2e6;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(48, 56, 68, 0.06);
 }
 
 .notebook-tab.add {
@@ -2565,28 +2565,28 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 }
 
 .notebook-title {
-  border-bottom-color: #ded4c7;
+  border-bottom-color: #dfe2e6;
   padding: 5px 2px;
-  color: #354052;
+  color: #303741;
   font-size: 15px;
   font-weight: 650;
 }
 
 .notebook-editor {
   min-height: 160px;
-  border-color: #e5dbce;
-  border-radius: 10px;
+  border-color: #e1e4e8;
+  border-radius: 8px;
   padding: 16px;
-  color: #3b3b3b;
-  background: #fffdf9;
-  box-shadow: 0 2px 8px rgba(117, 98, 74, 0.06);
+  color: #3b3f45;
+  background: #ffffff;
+  box-shadow: none;
   font-size: 14px;
   line-height: 1.85;
 }
 
 .notebook-editor:focus {
   border-color: #aabed8;
-  box-shadow: 0 0 0 3px rgba(95, 137, 190, 0.12), 0 2px 8px rgba(117, 98, 74, 0.06);
+  box-shadow: 0 0 0 3px rgba(95, 137, 190, 0.12);
 }
 
 /* Plain document presentation for source files: no code-card fill or accent rail. */

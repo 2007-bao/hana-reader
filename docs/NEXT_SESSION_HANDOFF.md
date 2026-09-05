@@ -5,7 +5,7 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.4.0`
+- 当前版本：`v1.4.1`
 - 稳定基线：`main` / `v0.9.0`
 - 当前目标：完成批注选区、下划线和 Notebook 修复后的测试、构建和本地提交
 - 工作区无关目录：`knob-motion-lab/`，不要查看、修改、提交或打包

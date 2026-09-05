@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.4.0` · 清爽三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v1.4.1` · 清爽三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -123,4 +123,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.4.0`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.4.1`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

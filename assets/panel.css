@@ -2589,6 +2589,27 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   box-shadow: 0 0 0 3px rgba(95, 137, 190, 0.12);
 }
 
+/* Markdown fenced blocks share the quiet quote treatment while keeping syntax colors. */
+.markdown-body .markdown-code {
+  margin: 1em 0;
+  border: 0;
+  border-left: 4px solid var(--maple-galaxy);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  color: var(--reader-code-plain);
+  background: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-middle-bg));
+  box-shadow: none;
+}
+
+.notebook-toolbar {
+  flex-wrap: nowrap;
+}
+
+.notebook-toolbar .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* Plain document presentation for source files: no code-card fill or accent rail. */
 .code-viewer,
 .code-viewer.markdown-code {

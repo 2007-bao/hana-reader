@@ -452,6 +452,11 @@ button {
   line-height: 1;
 }
 
+.tree-chevron {
+  color: transparent;
+  user-select: none;
+}
+
 .tree-icon.folder {
   color: #7a9a85;
 }
@@ -473,8 +478,24 @@ button {
 }
 
 .tree-nested {
+  position: relative;
   display: grid;
   gap: 1px;
+}
+
+.tree-nested::before {
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  left: calc(8px + var(--nested-depth) * 14px + 22px);
+  width: 1px;
+  content: '';
+  background: rgba(32, 36, 42, 0.16);
+  pointer-events: none;
+}
+
+body[data-hana-theme="dark"] .tree-nested::before {
+  background: rgba(229, 237, 244, 0.2);
 }
 
 .tree-empty,

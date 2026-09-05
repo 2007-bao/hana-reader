@@ -5,7 +5,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.8.2';
+const PLUGIN_VERSION = '0.8.3';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
@@ -646,11 +646,11 @@ function renderTreeNode(node, depth, index) {
   const selected = state.current?.node?.id === node.id;
   const directory = node.isDirectory;
   const action = directory ? 'toggle' : 'open';
-  const leading = directory ? (node.expanded ? '⌄' : '›') : '';
+  const leading = '';
   const iconType = directory ? 'folder' : fileIconType(node.name);
   const disabled = node.unsupported ? ' disabled' : '';
   const nested = directory && node.expanded
-    ? `<div class="tree-nested">${node.items.length
+    ? `<div class="tree-nested" style="--nested-depth:${depth}">${node.items.length
       ? node.items.map((child) => renderTreeNode(child, depth + 1, index)).join('')
       : '<div class="tree-empty">空文件夹</div>'}</div>`
     : '';

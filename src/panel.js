@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.4.4';
+const PLUGIN_VERSION = '1.5.0';
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
@@ -33,6 +33,8 @@ let readerModeTransitionTarget = null;
 let readerModeTransitionSource = null;
 let readerModeTransitionToken = 0;
 const readerModeKnobBindings = new WeakSet();
+const readerModeKeyBindings = new WeakSet();
+const actionBindings = new WeakSet();
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -1011,15 +1013,49 @@ function setEmbeddedKnobState(object, nextState, animate = false) {
   return true;
 }
 
+function syncReaderModeDock() {
+  const dock = root?.querySelector('.reader-mode-mount');
+  if (!dock) return;
+  const current = state.current;
+  if (!current) {
+    dock.hidden = true;
+    return;
+  }
+  dock.hidden = false;
+  const canEdit = Boolean(current && !current.binary && (current.language !== 'markdown' || current.editable));
+  const knob = dock.querySelector('.reader-mode-knob');
+  const label = dock.querySelector('.reader-mode-label');
+  const reason = dock.querySelector('.reader-mode-readonly-reason');
+  const discard = dock.querySelector('.reader-mode-discard');
+  if (knob) {
+    knob.hidden = !canEdit;
+    knob.disabled = Boolean(state.busy || !canEdit);
+    knob.setAttribute('aria-pressed', String(state.editing));
+    const labelText = state.editing ? '切换为只读' : '切换为编辑';
+    knob.setAttribute('aria-label', labelText);
+    knob.setAttribute('title', labelText);
+  }
+  if (label) label.hidden = canEdit;
+  if (reason) reason.hidden = !(current?.language === 'markdown' && !current.editable);
+  if (discard) discard.hidden = !current?.saveFailed;
+}
+
 function bindReaderModeKnob() {
   const object = root?.querySelector('.reader-mode-knob-art');
-  if (!object) return;
-  const sync = () => setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
-  if (!readerModeKnobBindings.has(object)) {
-    object.addEventListener('load', sync);
-    readerModeKnobBindings.add(object);
+  const control = root?.querySelector('.reader-mode-knob');
+  if (object) {
+    const sync = () => setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
+    if (!readerModeKnobBindings.has(object)) {
+      object.addEventListener('load', sync);
+      readerModeKnobBindings.add(object);
+    }
+    sync();
   }
-  sync();
+  if (control && !readerModeKeyBindings.has(control)) {
+    control.addEventListener('keydown', handleReaderModeKeydown);
+    readerModeKeyBindings.add(control);
+  }
+  syncReaderModeDock();
 }
 
 function cancelReaderModeTransition() {
@@ -1311,7 +1347,7 @@ function createSelectionToolbar(viewer, rect = currentSelectionRect()) {
   if (!viewer || !rect) return;
   const toolbar = document.createElement('div');
   toolbar.className = 'selection-toolbar';
-  toolbar.innerHTML = '<button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">下划线</button><button type="button" data-annotation-action="erase">擦除</button>';
+  toolbar.innerHTML = '<button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">划线</button><button type="button" data-annotation-action="erase">擦除</button>';
   toolbar.addEventListener('mousedown', (event) => event.preventDefault());
   toolbar.addEventListener('click', (event) => {
     const action = event.target.closest('button')?.dataset.annotationAction;
@@ -1387,7 +1423,7 @@ function beginAnnotation(kind) {
     state.selection = null;
     activeSelectionRect = null;
     removeSelectionOverlay();
-    state.status = kind === 'highlight' ? '已添加高亮' : '已添加下划线';    render();
+    state.status = kind === 'highlight' ? '已添加高亮' : '已添加划线';    render();
     return;
   }
   state.annotationComposer = { kind: 'comment', selection: { ...state.selection } };
@@ -1657,15 +1693,22 @@ function renderReaderModeKnob() {
   return `<button type="button" class="reader-mode-knob" data-action="toggle-reader-mode" aria-pressed="${editing}" aria-label="${label}" title="${label}" ${state.busy ? 'disabled' : ''}><object class="reader-mode-knob-art" data="${escapeHtml(pluginAssetUrl('native-knob.svg'))}" type="image/svg+xml" aria-hidden="true" tabindex="-1"></object></button>`;
 }
 
+function renderReaderModeDock() {
+  return `<div class="reader-mode-mount" hidden><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">
+    <button class="button danger tiny reader-mode-discard" data-action="discard-draft" hidden>放弃草稿</button>
+    ${renderReaderModeKnob()}
+    <span class="reader-mode-label" hidden>只读</span>
+    <span class="editor-status reader-mode-readonly-reason" hidden>文件超过 512 KB，仅只读预览</span>
+  </div></div>`;
+}
+
+function renderCollapseWaves(side) {
+  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""></div>`;
+}
+
 function renderReaderPane() {
   if (!state.current) {
-    return `<div class="welcome-pane">
-      <div class="welcome-mark">阅</div>
-      <h1>从一份文件开始</h1>
-      <p>选择左侧的文件，保持专注地阅读 AI 与多 Agent 的产出。</p>
-      <button class="button primary" data-action="pick">选择文件夹</button>
-      <div class="principles"><span>只读起步</span><span>本地优先</span><span>可追溯</span></div>
-    </div>`;
+    return `<div class="welcome-pane"><div class="welcome-art-wrap"><img class="welcome-art" src="${escapeHtml(pluginAssetUrl('reader-empty.png'))}" alt=""><button class="welcome-butterfly-hit" data-action="pick" aria-label="选择文件夹" title="选择文件夹"></button></div></div>`;
   }
 
   const current = state.current;
@@ -1677,7 +1720,7 @@ function renderReaderPane() {
     const conflictNotice = current.conflict
       ? `<div class="conflict-notice" role="alert"><strong>远端文件已变化</strong><p>本地草稿仍保留，未自动覆盖远端内容。你可以载入远端版本，或明确确认用本地草稿覆盖。</p><div class="conflict-actions"><button class="button ghost" data-action="reload-conflict" ${typeof current.conflict.content === 'string' ? '' : 'disabled'}>载入远端版本</button><button class="button danger" data-action="overwrite-conflict">确认覆盖远端</button><button class="button tiny" data-action="discard-draft">放弃草稿</button></div></div>`
       : '';
-    return `<div class="reader-surface editor-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${current.saveFailed ? '<button class="button danger tiny" data-action="discard-draft">放弃草稿</button>' : ''}${renderReaderModeKnob()}</div>${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
+    return `<div class="reader-surface editor-surface">${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
   }
 
   const body = current.binary
@@ -1687,23 +1730,18 @@ function renderReaderPane() {
       : current.language === 'html' && current.htmlPreview && byteLength(current.content) <= MAX_EDIT_BYTES
         ? `<div class="html-preview-wrap"><iframe class="html-preview" sandbox title="安全 HTML 预览" srcdoc="${escapeHtml(sanitizeHtmlPreview(current.content))}"></iframe></div>`
         : renderCodeViewer(current.content, current.language);
-  const editorAction = current.language === 'markdown' && !current.editable
-    ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
-    : '';
-  const canEdit = !current.binary && (current.language !== 'markdown' || current.editable);
   const htmlAction = current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES
     ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '源码' : '预览'}</button>`
     : '';
-  const modeControl = canEdit ? renderReaderModeKnob() : '<span class="reader-mode-label">只读</span>';
-  return `<div class="reader-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${htmlAction}${editorAction}${modeControl}</div><div class="viewer-scroll">${body}</div></div>`;
+  return `<div class="reader-surface"><div class="reader-inline-actions">${htmlAction}</div><div class="viewer-scroll">${body}</div></div>`;
 }
 
 function renderCopilot() {
   if (state.rightCollapsed) {
-    return '<aside class="copilot-panel is-collapsed"><button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">‹</button></aside>';
+    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏"><img src="${escapeHtml(pluginAssetUrl('collapse-right.png'))}" alt=""></button></aside>`;
   }
   return `<aside class="copilot-panel">
-    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button><button class="panel-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">›</button></div>
+    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏"><img src="${escapeHtml(pluginAssetUrl('collapse-right.png'))}" alt=""></button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
     ${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}
   </aside>`;
 }
@@ -1729,7 +1767,7 @@ function renderCopilotPanel() {
     <div class="copilot-message-body">${message.role === 'assistant' ? renderAssistantText(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
   </div>`).join('');
   return `<div class="copilot-content">
-    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><div class="copilot-empty-mark">✦</div><h3>从当前文件开始</h3><p>直接提问，AI 只读取正在阅读的文本。</p></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
+    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.png'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
     ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
     <div class="copilot-composer"><textarea data-copilot-prompt rows="1" placeholder="询问当前文件……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="copilot-send" data-action="copilot-submit" aria-label="发送" title="发送（Enter）" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '…' : '↑'}</button></div>
   </div>`;
@@ -1823,6 +1861,15 @@ function beginResize(side, event) {
   window.addEventListener('pointerup', finish, { once: true });
 }
 
+function ensureWorkspaceShell() {
+  let shell = root.querySelector('.workspace-shell');
+  if (!shell) {
+    root.innerHTML = `<div class="reader-app"><div class="workspace-shell"><div class="workspace-body"></div>${renderReaderModeDock()}</div></div>`;
+    shell = root.querySelector('.workspace-shell');
+  }
+  return shell;
+}
+
 function render() {
   if (!root) return;
   const remountSession = !suppressEditorRemount && !state.busy && state.editing && state.current && (
@@ -1830,8 +1877,10 @@ function render() {
   ) ? state.current : null;
   suppressEditorRemount = false;
   const editorCleanup = remountSession ? destroyMarkdownEditor() : null;
-  const previousTreeScroll = root.querySelector('.tree-scroll')?.scrollTop || 0;
-  const previousReaderModeKnob = root.querySelector('.reader-mode-knob-art');
+  const shell = ensureWorkspaceShell();
+  const workspaceBody = shell.querySelector('.workspace-body');
+  shell.style.setProperty('--right-panel-width', `${state.rightCollapsed ? 38 : state.rightWidth}px`);
+  const previousTreeScroll = workspaceBody.querySelector('.tree-scroll')?.scrollTop || 0;
   const nodeIndex = new Map();
   const tree = renderTree();
   // renderTreeNode populates its local index during markup creation; rebuild the lookup here.
@@ -1842,11 +1891,10 @@ function render() {
   };
   collect(state.rootNode);
 
-  root.innerHTML = `<div class="reader-app">
-    <div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">
+  workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">
       <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
-        <div class="panel-heading"><div class="panel-heading-title">文件栏</div><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="刷新目录" aria-label="刷新目录">↻</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : '<button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">‹</button>'}</div></div>
-        ${state.leftCollapsed ? '<button class="panel-collapse file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树">›</button>' : ''}
+        <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.png'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : '<button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树"><img src="' + escapeHtml(pluginAssetUrl('collapse-left.png')) + '" alt=""></button>'}</div></div>
+        ${state.leftCollapsed ? `${renderCollapseWaves('left')}<button class="panel-collapse file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树"><img src="${escapeHtml(pluginAssetUrl('collapse-left.png'))}" alt=""></button>` : ''}
         <div class="tree-scroll">${tree}</div>
       </aside>
       <div class="panel-resizer" data-resizer="left" role="separator" aria-label="调整文件树宽度"></div>
@@ -1856,8 +1904,6 @@ function render() {
     </div>
   </div>`;
 
-  const nextReaderModeKnob = root.querySelector('.reader-mode-knob-art');
-  if (previousReaderModeKnob && nextReaderModeKnob) nextReaderModeKnob.replaceWith(previousReaderModeKnob);
   bindReaderModeKnob();
   const article = root.querySelector('.viewer-scroll .markdown-body');
   if (article && state.current?.language === 'markdown') {
@@ -1881,6 +1927,8 @@ function render() {
   });
 
   root.querySelectorAll('[data-action]').forEach((element) => {
+    if (actionBindings.has(element)) return;
+    actionBindings.add(element);
     element.addEventListener('click', () => {
       const action = element.dataset.action;
       const node = nodeIndex.get(element.dataset.nodeId);
@@ -1948,7 +1996,10 @@ function render() {
   });
 
   const readerModeKnob = root.querySelector('[data-action="toggle-reader-mode"]');
-  if (readerModeKnob) readerModeKnob.addEventListener('keydown', handleReaderModeKeydown);
+  if (readerModeKnob && !readerModeKeyBindings.has(readerModeKnob)) {
+    readerModeKnob.addEventListener('keydown', handleReaderModeKeydown);
+    readerModeKeyBindings.add(readerModeKnob);
+  }
 
   const notebookEditor = root.querySelector('[data-notebook]');
   if (notebookEditor) {

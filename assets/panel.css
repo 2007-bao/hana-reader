@@ -2694,6 +2694,284 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 @media (max-width: 560px) {
   .reader-mode-knob {
-    width: 56px;
+    width: 84px;
+  }
+}
+
+/* v1.5 visual pass: stable reader chrome, illustrated empty states, and quiet side rails. */
+.workspace-shell {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.workspace-body {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+}
+
+.reader-mode-mount {
+  position: absolute;
+  top: 12px;
+  right: calc(var(--right-panel-width, 288px) + 28px);
+  z-index: 8;
+  pointer-events: none;
+}
+
+.reader-mode-mount[hidden] {
+  display: none;
+}
+
+.reader-mode-mount .reader-mode-toolbar,
+.reader-mode-mount .reader-mode-toolbar > * {
+  pointer-events: auto;
+}
+
+.reader-mode-mount .reader-mode-toolbar {
+  position: static;
+}
+
+.reader-mode-readonly-reason {
+  max-width: 180px;
+}
+
+.reader-inline-actions {
+  position: absolute;
+  z-index: 7;
+  top: 12px;
+  left: 20px;
+  min-height: 30px;
+}
+
+.reader-inline-actions:empty {
+  display: none;
+}
+
+.reader-mode-knob {
+  width: clamp(84px, 9vw, 96px);
+}
+
+.file-panel-brand {
+  display: block;
+  width: 116px;
+  height: 39px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.file-panel .panel-heading-actions {
+  gap: 5px;
+}
+
+.file-panel .panel-tool,
+.file-panel .panel-collapse {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+}
+
+.panel-collapse img {
+  display: block;
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.file-panel.is-collapsed .panel-heading {
+  display: none;
+}
+
+.file-panel-expand {
+  top: 50%;
+  right: 4px;
+  left: auto;
+  transform: translateY(-50%);
+}
+
+.file-panel-expand:hover:not(:disabled),
+.copilot-panel.is-collapsed .panel-collapse:hover:not(:disabled) {
+  background: transparent;
+}
+
+.copilot-panel .assistant-switcher .panel-collapse {
+  order: -1;
+  margin-left: 0;
+  margin-right: 4px;
+}
+
+.copilot-panel.is-collapsed {
+  position: relative;
+  align-items: stretch;
+  padding: 0;
+}
+
+.copilot-panel.is-collapsed > .panel-collapse {
+  position: absolute;
+  top: 12px;
+  left: 4px;
+  z-index: 5;
+}
+
+.welcome-pane {
+  min-height: calc(100vh - 102px);
+  padding: 24px;
+}
+
+.welcome-art-wrap {
+  position: relative;
+  width: min(92%, 680px);
+}
+
+.welcome-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 18px rgba(74, 109, 157, 0.08));
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1), filter 180ms ease;
+}
+
+.welcome-butterfly-hit {
+  position: absolute;
+  top: 32%;
+  left: 41%;
+  width: 18%;
+  height: 36%;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.welcome-butterfly-hit:hover,
+.welcome-butterfly-hit:focus-visible {
+  background: color-mix(in srgb, var(--reader-accent) 8%, transparent);
+}
+
+.welcome-butterfly-hit:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--reader-accent) 58%, transparent);
+  outline-offset: 4px;
+}
+
+.welcome-art-wrap:has(.welcome-butterfly-hit:hover) .welcome-art,
+.welcome-art-wrap:has(.welcome-butterfly-hit:focus-visible) .welcome-art {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 15px 22px rgba(74, 109, 157, 0.16));
+}
+
+.copilot-empty.compact {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  padding: 24px;
+  text-align: center;
+}
+
+.copilot-empty-art {
+  display: block;
+  width: min(58%, 156px);
+  height: auto;
+  filter: drop-shadow(0 11px 18px rgba(74, 109, 157, 0.1));
+}
+
+.selection-toolbar {
+  gap: 1px;
+  border-radius: 0;
+  padding: 3px;
+}
+
+.selection-toolbar button {
+  border-radius: 0;
+  padding: 4px 7px;
+  font-size: 13px;
+}
+
+.collapse-waves {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.collapse-wave {
+  position: absolute;
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  opacity: 0.78;
+}
+
+.collapse-waves-left .collapse-wave-a {
+  bottom: 14px;
+  left: 0;
+  animation: wave-surge-left 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.collapse-waves-left .collapse-wave-b {
+  bottom: 58px;
+  left: 7px;
+  width: 29px;
+  height: 29px;
+  animation: wave-surge-left 280ms 42ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.collapse-waves-left .collapse-wave-c {
+  bottom: 101px;
+  left: -2px;
+  width: 25px;
+  height: 25px;
+  animation: wave-surge-left 280ms 78ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.collapse-waves-right .collapse-wave-a {
+  right: 0;
+  bottom: 14px;
+  animation: wave-surge-right 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.collapse-waves-right .collapse-wave-b {
+  right: 7px;
+  bottom: 58px;
+  width: 29px;
+  height: 29px;
+  animation: wave-surge-right 280ms 42ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.collapse-waves-right .collapse-wave-c {
+  right: -2px;
+  bottom: 101px;
+  width: 25px;
+  height: 25px;
+  animation: wave-surge-right 280ms 78ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes wave-surge-left {
+  from { opacity: 0; transform: translate3d(-16px, 8px, 0) scale(0.88); }
+  to { opacity: 0.78; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes wave-surge-right {
+  from { opacity: 0; transform: translate3d(16px, 8px, 0) scaleX(-1) scale(0.88); }
+  to { opacity: 0.78; transform: translate3d(0, 0, 0) scaleX(-1) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-art {
+    transition: filter 120ms ease;
+  }
+
+  .welcome-art-wrap:has(.welcome-butterfly-hit:hover) .welcome-art,
+  .welcome-art-wrap:has(.welcome-butterfly-hit:focus-visible) .welcome-art {
+    transform: none;
+  }
+
+  .collapse-wave {
+    animation: none !important;
+    opacity: 0.78;
   }
 }

@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.4.4` · 清爽三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v1.5.0` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -17,13 +17,13 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 
 所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
 
-## v1.4.4 本轮完成：Quiet 读写旋钮稳定性修复
+## v1.5.0 本轮完成：插画化工作台与稳定阅读底座
 
-- 中间栏原有的“只读 / 编辑”按钮已替换为原生 `assets/native-knob.svg`。
-- 旋钮统一锚定在阅读区右上角，左右模式切换不再改变位置。
-- 旋钮尺寸缩小到原方案约三分之一；编辑模式不再显示“编辑中 · 未修改”。
-- SVG 使用独立的语义图层与 CSS 状态转场；跨文件重绘时复用已加载的 object，避免闪烁。
-- 实验源目录 `knob-motion-lab/` 仍保持独立，Reader 只打包插件内的复制资产。
+- 中间栏旋钮升级为独立于文件内容的持久 dock；切换文件时复用整个控件节点，避免闪烁和卡顿。
+- 旋钮左侧对应只读、右侧对应编辑；点击和左右方向键均可操作，并在 reduced-motion 下静态切换。
+- 接入初始阅读插画、AI 空状态蝴蝶、文件栏插画标题和两侧专用收起图标。
+- 侧栏折叠窄条加入下半部错落海浪动效，并提供 reduced-motion 降级。
+- 选区工具条改为“划线”、字号增大、硬边紧凑矩形；实验源目录仍不参与 Reader 构建。
 
 ## v1.2.0 本轮完成
 
@@ -132,4 +132,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.4.4`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.5.0`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

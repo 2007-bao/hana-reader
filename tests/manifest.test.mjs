@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.4.4 reader page with guarded resource access', async () => {
+test('manifest declares the v1.5.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.4.4');
+  assert.equal(manifest.version, '1.5.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -53,6 +53,12 @@ test('reader source, built assets, and cache-busting route are present', async (
     'assets/panel.js',
     'assets/panel.css',
     'assets/native-knob.svg',
+    'assets/collapse-left.png',
+    'assets/collapse-right.png',
+    'assets/collapse-waves.png',
+    'assets/reader-empty.png',
+    'assets/copilot-empty.png',
+    'assets/file-panel-header.png',
     'assets/fonts/MapleMono-Regular.woff2',
     'assets/fonts/MapleMono-Italic.woff2',
     'assets/fonts/OFL.txt',
@@ -73,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.4\.4'/);
+  assert.match(route, /ASSET_REVISION = '1\.5\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -83,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.4.4'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.5.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -100,8 +106,9 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /data-action="toggle-reader-mode"/);
   assert.match(panelSource, /pluginAssetUrl\('native-knob\.svg'\)/);
   assert.match(panelSource, /setEmbeddedKnobState/);
-  assert.match(panelSource, /previousReaderModeKnob/);
-  assert.match(panelSource, /nextReaderModeKnob/);
+  assert.match(panelSource, /ensureWorkspaceShell/);
+  assert.match(panelSource, /workspaceBody/);
+  assert.match(panelSource, /reader-mode-mount/);
   assert.doesNotMatch(panelSource, /id="editor-status" class="editor-status"/);
   assert.match(nativeKnob, /id="slider-wrap"/);
   assert.match(nativeKnob, /id="knob-motion"/);
@@ -142,6 +149,8 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /showAnnotationBubble/);
   assert.match(panelSource, /data-annotation-action/);
   assert.match(panelSource, /data-annotation-action="erase"/);
+  assert.match(panelSource, /data-annotation-action="underline">划线/);
+  assert.doesNotMatch(panelSource, /data-annotation-action="underline">下划线/);
   assert.doesNotMatch(panelSource, /<header class=\"topbar\"/);
   assert.match(css, /grid-template-columns: var\(--left-panel-width\)/);
   assert.match(css, /height: 100vh/);
@@ -164,7 +173,12 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /data-action="show-notebook"/);
   assert.match(panel, /file-panel-expand/);
   assert.match(panel, /data-action="toggle-left"/);
-  assert.match(panel, /panel-heading-title.*文件栏/);
+  assert.match(panel, /file-panel-header\.png/);
+  assert.match(panel, /collapse-left\.png/);
+  assert.match(panel, /collapse-right\.png/);
+  assert.match(panel, /collapse-waves\.png/);
+  assert.match(panel, /reader-empty\.png/);
+  assert.match(panel, /copilot-empty\.png/);
   assert.match(panel, /data-notebook/);
   assert.match(panel, /contextmenu/);
   assert.match(panel, /deleteNotebook/);
@@ -188,9 +202,12 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(annotationEngine, /dataset\.annotationNote/);
   assert.match(css, /\.reader-floating-toolbar/);
   assert.match(css, /\.reader-mode-knob/);
-  assert.match(css, /width: clamp\(56px, 6vw, 64px\)/);
+  assert.match(css, /width: clamp\(84px, 9vw, 96px\)/);
+  assert.match(css, /\.collapse-waves/);
+  assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /\.reader-mode-knob-art/);
-  assert.match(css, /\.reader-surface > \.reader-mode-toolbar/);
+  assert.match(css, /\.reader-mode-mount/);
+  assert.match(css, /\.workspace-shell/);
   assert.doesNotMatch(css, /\.file-panel\.is-collapsed \.panel-heading > div:first-child/);
   assert.match(css, /\.file-panel-expand/);
   assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);

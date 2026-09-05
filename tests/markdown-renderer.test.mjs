@@ -11,6 +11,12 @@ import { highlightCode, renderMarkdown } from '../src/markdown-engine.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 
+test('heading numbering uses a separate default-font span', () => {
+  const output = renderMarkdown('# 01.2 · Maple heading');
+
+  assert.match(output, /<h1><span class="heading-number">01\.2<\/span> · Maple heading<\/h1>/);
+});
+
 test('mature renderer isolates inline code, links, and emphasis', () => {
   const output = renderMarkdown('`_not_italic_` and [`docs/PLUGIN_LOADING.md`](docs/PLUGIN_LOADING.md) with _real emphasis_.');
 

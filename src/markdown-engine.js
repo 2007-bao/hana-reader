@@ -46,7 +46,12 @@ export function sanitizeHtmlPreview(source) {
 }
 
 export function renderMarkdown(source) {
-  return sanitizeMarkup(markdown.render(String(source || '')))
+  const rendered = markdown.render(String(source || ''));
+  const withHeadingNumbers = rendered.replace(
+    /(<h[1-6]\b[^>]*>)(\s*(?:\d+\.)*\d+)(?=\s|·|[)）])/g,
+    '$1<span class="heading-number">$2</span>',
+  );
+  return sanitizeMarkup(withHeadingNumbers)
     || '<p class="empty-document">这是一个空文件。</p>';
 }
 

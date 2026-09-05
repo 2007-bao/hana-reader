@@ -10,11 +10,11 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.8.0 reader page with guarded resource access', async () => {
+test('manifest declares the v0.8.1 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.8.0');
+  assert.equal(manifest.version, '0.8.1');
   assert.equal(manifest.trust, 'full-access');
   assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
   assert.equal(manifest.contributes.page.route, '/page');
@@ -57,12 +57,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.8\.0'/);
+  assert.match(route, /ASSET_REVISION = '0\.8\.1'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/write'/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0\.8\.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '0.8.1'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -130,9 +130,14 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /--maple-galaxy: #446CCF/);
   assert.match(css, /--maple-morning: #89ABE3/);
   assert.match(css, /--maple-stream: #88C6ED/);
-  assert.match(css, /--reader-code-string: var\(--maple-green\)/);
+  assert.match(css, /--reader-code-plain: #20242a/);
+  assert.match(css, /h1[\s\S]*color: var\(--maple-galaxy\)/);
+  assert.match(css, /h2[\s\S]*color: var\(--maple-sea\)/);
+  assert.match(css, /h3[\s\S]*color: var\(--maple-morning\)/);
+  assert.match(css, /h4[\s\S]*color: var\(--maple-stream\)/);
+  assert.match(css, /--reader-code-string: var\(--maple-lake\)/);
   assert.match(css, /body\[data-hana-theme="dark"\]/);
-  assert.match(css, /--reader-code-keyword: var\(--maple-purple\)/);
+  assert.match(css, /--reader-code-keyword: var\(--maple-galaxy\)/);
   assert.match(css, /--maple-line-height-normal: 1\.45/);
   assert.match(css, /--maple-line-height-tight: 1\.35/);
   assert.match(css, /\.token-number,[\s\S]*font-family: var\(--reader-ui-font\)/);

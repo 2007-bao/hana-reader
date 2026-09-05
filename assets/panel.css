@@ -1778,7 +1778,6 @@ body {
   color: var(--reader-muted);
 }
 
-.tree-icon.readme,
 .tree-icon.json,
 .tree-icon.archive,
 .tree-icon.code,
@@ -1788,8 +1787,29 @@ body {
   color: var(--reader-muted);
 }
 
+.tree-icon.readme,
 .tree-icon.markdown {
   color: #3f7ee8;
+}
+
+.code-viewer {
+  border: 0;
+  border-left: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--reader-ui-font);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.code-viewer .code-line {
+  min-height: 25px;
+}
+
+.code-viewer .code-line:hover {
+  background: color-mix(in srgb, var(--reader-muted) 8%, transparent);
 }
 
 .file-panel .panel-heading {
@@ -2475,4 +2495,16 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   color: var(--reader-heading);
   font-family: var(--reader-ui-font);
   font-size: 1em;
+}
+
+/* Plain document presentation for source files: no code-card fill or accent rail. */
+.code-viewer,
+.code-viewer.markdown-code {
+  border: 0;
+  border-left: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--reader-ui-font);
 }

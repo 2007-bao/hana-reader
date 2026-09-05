@@ -1309,37 +1309,37 @@ body[data-hana-theme="dark"] .tree-nested::before {
 
 .markdown-body h1,
 .markdown-editor .ProseMirror h1 {
-  color: var(--maple-galaxy);
+  color: var(--maple-morning);
   font-size: 28px;
 }
 
 .markdown-body h2,
 .markdown-editor .ProseMirror h2 {
-  color: var(--maple-lake);
+  color: var(--maple-stream);
   font-size: 23px;
 }
 
 .markdown-body h3,
 .markdown-editor .ProseMirror h3 {
-  color: var(--maple-morning);
+  color: var(--maple-ice);
   font-size: 19px;
 }
 
 .markdown-body h4,
 .markdown-editor .ProseMirror h4 {
-  color: var(--maple-stream);
+  color: var(--maple-aurora);
   font-size: 17px;
 }
 
 .markdown-body h5,
 .markdown-editor .ProseMirror h5 {
-  color: var(--maple-ice);
+  color: var(--maple-aurora);
   font-size: 16px;
 }
 
 .markdown-body h6,
 .markdown-editor .ProseMirror h6 {
-  color: var(--maple-aurora);
+  color: var(--reader-text);
   font-size: 15px;
 }
 

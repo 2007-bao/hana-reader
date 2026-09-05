@@ -1519,6 +1519,57 @@ body {
   font-family: var(--reader-ui-font);
 }
 
+.tree-content,
+.tree-nested {
+  gap: 0;
+}
+
+.tree-row {
+  grid-template-columns: 14px 18px minmax(0, 1fr) auto;
+  gap: 1px;
+  border-radius: 6px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.tree-icon svg,
+.folder-dot svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.tree-icon.folder,
+.folder-dot {
+  color: var(--maple-blue);
+}
+
+.tree-icon.markdown {
+  color: var(--maple-purple);
+}
+
+.tree-icon.json,
+.tree-icon.javascript {
+  color: var(--maple-cyan);
+}
+
+.tree-icon.style {
+  color: var(--maple-green);
+}
+
+.tree-icon.markup {
+  color: var(--maple-orange);
+}
+
+.tree-icon.file {
+  color: var(--reader-muted);
+}
+
 @media (max-width: 1020px) {
   .workspace {
     grid-template-columns: var(--left-panel-width) 8px minmax(0, 1fr) 0 0;

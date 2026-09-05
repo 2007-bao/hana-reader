@@ -647,7 +647,7 @@ function renderTreeNode(node, depth, index) {
   const directory = node.isDirectory;
   const action = directory ? 'toggle' : 'open';
   const leading = directory ? (node.expanded ? '⌄' : '›') : '';
-  const icon = directory ? (node.expanded ? '▾' : '▸') : '·';
+  const iconType = directory ? 'folder' : fileIconType(node.name);
   const disabled = node.unsupported ? ' disabled' : '';
   const nested = directory && node.expanded
     ? `<div class="tree-nested">${node.items.length
@@ -657,10 +657,26 @@ function renderTreeNode(node, depth, index) {
 
   return `<button class="tree-row ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" style="--depth:${depth}" title="${escapeHtml(node.name)}">
     <span class="tree-chevron">${leading}</span>
-    <span class="tree-icon ${directory ? 'folder' : 'file'}">${icon}</span>
+    <span class="tree-icon ${iconType}" aria-hidden="true">${treeIconSvg(directory, node.expanded)}</span>
     <span class="tree-name">${escapeHtml(node.name)}</span>
     <span class="tree-size">${node.isDirectory ? '' : escapeHtml(formatSize(node.size))}</span>
   </button>${nested}`;
+}
+
+function fileIconType(name) {
+  const extension = String(name || '').toLowerCase().split('.').pop();
+  return ['markdown', 'md', 'mdx'].includes(extension) ? 'markdown'
+    : ['json', 'jsonc'].includes(extension) ? 'json'
+      : ['js', 'jsx', 'ts', 'tsx'].includes(extension) ? 'javascript'
+        : ['css', 'scss', 'less'].includes(extension) ? 'style'
+          : ['html', 'htm', 'xml'].includes(extension) ? 'markup' : 'file';
+}
+
+function treeIconSvg(directory, expanded) {
+  if (directory) {
+    return `<svg viewBox="0 0 24 24" focusable="false"><path d="M3.5 6.5h6l1.7 2h9.3v9.8a1.2 1.2 0 0 1-1.2 1.2H4.7a1.2 1.2 0 0 1-1.2-1.2V6.5Z"/><path d="M3.5 9h17"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h8l4 4v13H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5Z"/><path d="M14 3.5v4h4"/></svg>`;
 }
 
 function renderTree() {
@@ -674,7 +690,7 @@ function renderTree() {
 
   const index = new Map();
   const tree = renderTreeNode(state.rootNode, 0, index);
-  return `<div class="tree-root-name"><span class="folder-dot">◈</span>${escapeHtml(state.rootNode.name)}</div>
+  return `<div class="tree-root-name"><span class="folder-dot" aria-hidden="true">${treeIconSvg(true, true)}</span>${escapeHtml(state.rootNode.name)}</div>
     <div class="tree-content">${tree}</div>`;
 }
 
@@ -920,6 +936,7 @@ function beginResize(side, event) {
 
 function render() {
   if (!root) return;
+  const previousTreeScroll = root.querySelector('.tree-scroll')?.scrollTop || 0;
   const nodeIndex = new Map();
   const tree = state.rootNode ? renderTree() : renderTree();
   // renderTreeNode populates its local index during markup creation; rebuild the lookup here.
@@ -944,6 +961,9 @@ function render() {
     </div>
     <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>编辑自动保存 · 可回撤上一步</span></footer>
   </div>`;
+
+  const treeScroll = root.querySelector('.tree-scroll');
+  if (treeScroll) treeScroll.scrollTop = previousTreeScroll;
 
   root.querySelectorAll('[data-resizer]').forEach((element) => {
     element.addEventListener('pointerdown', (event) => beginResize(element.dataset.resizer, event));

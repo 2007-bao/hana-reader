@@ -83,6 +83,9 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /编辑自动保存/);
   assert.match(panelSource, /reader-modebar/);
   assert.match(panelSource, /panel-resizer/);
+  assert.match(panelSource, /treeIconSvg/);
+  assert.match(panelSource, /fileIconType/);
+  assert.match(panelSource, /previousTreeScroll/);
   assert.match(panelSource, /toggle-left/);
   assert.match(panelSource, /toggle-right/);
   assert.match(panelSource, /pointerdown/);

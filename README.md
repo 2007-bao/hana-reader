@@ -50,7 +50,7 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 
 ### Notebook
 
-- 右侧 Notebook 保持极简：选择、新建、改名、直接编辑、导出 Markdown；右键笔记本即可删除。
+- 右侧 Notebook 保持极简：选择、新建、改名、直接编辑；导出会选择已有文本文件并安全覆盖写入，右键笔记本或删除按钮即可删除。
 - 多份 Notebook 独立保存在浏览器本地，不改写当前阅读文件。
 
 ## 保留的服务端能力
@@ -61,7 +61,7 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 
 - Copilot 依赖 Hana `model.sample` 与可用的 utility 文本模型。
 - 批注、Notebook、会话位置和 Copilot 历史尚未做跨设备 sidecar 同步。
-- Notebook 目前只能导出本地内容，不负责创建新的 ResourceIO 文件。
+- Notebook 导出通过 ResourceIO 选择已有文本文件并安全覆盖；当前不负责创建新的 ResourceIO 文件。
 - 后续优先考虑批注 / Notebook 导入导出、轻量多标签、长文档分段渲染和死 CSS 清理。
 - `knob-motion-lab/` 是其他实验目录，不属于本插件范围。
 

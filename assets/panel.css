@@ -2356,8 +2356,7 @@ body {
   font-size: 14px;
 }
 
-.notebook-delete-prompt,
-.notebook-export-fallback {
+.notebook-delete-prompt {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -2375,20 +2374,11 @@ body {
   min-width: 0;
 }
 
-.notebook-export-fallback {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.notebook-export-fallback a {
-  color: var(--reader-accent);
-  text-decoration: none;
-}
-
-.notebook-export-fallback a:hover {
-  text-decoration: underline;
+.notebook-status {
+  margin: 7px 10px 0;
+  color: var(--reader-muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .copilot-message-body .assistant-markdown {

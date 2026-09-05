@@ -171,8 +171,6 @@ const state = {
   notebooks: [],
   activeNotebookId: null,
   notebookDeleteId: null,
-  notebookExportUrl: '',
-  notebookExportName: '',
   annotations: [],
   annotationKey: '',
   annotationComposer: null,
@@ -1365,7 +1363,10 @@ function deleteNotebook(id) {
   state.notebookDeleteId = null;
   state.notebooks = state.notebooks.filter((item) => item.id !== id);
   if (!state.notebooks.length) state.notebooks = [createNotebook()];
-  if (state.activeNotebookId === id) state.activeNotebookId = state.notebooks[0].id;
+  if (state.activeNotebookId === id) {
+    state.activeNotebookId = state.notebooks[0]?.id || null;
+    state.notebookText = '';
+  }
   syncNotebookText();
   saveNotebook();
   state.status = `已删除笔记本“${notebook.title}”`;
@@ -1381,18 +1382,41 @@ function updateNotebookTitle() {
   saveNotebook();
 }
 
-function downloadNotebook() {
+async function exportNotebookToResource() {
   const notebook = activeNotebook();
-  if (!notebook) return;
-  if (state.notebookExportUrl) URL.revokeObjectURL(state.notebookExportUrl);
-  const blob = new Blob([notebook.text || ''], { type: 'text/markdown;charset=utf-8' });
-  state.notebookExportUrl = URL.createObjectURL(blob);
-  state.notebookExportName = `${(notebook.title || '阅读笔记').replace(/[\\/:*?"<>|]/g, '_')}.md`;
-  state.status = '已准备 Notebook 导出文件';
+  if (!notebook || state.busy) return;
+  state.busy = true;
+  state.status = '选择要覆盖的 Markdown 文件…';
   render();
-  window.requestAnimationFrame(() => {
-    root.querySelector('[data-notebook-download-link]')?.click();
-  });
+  try {
+    const picked = await hana.resources.pick({
+      mode: 'file',
+      multiple: false,
+      capability: 'resource.write',
+    });
+    const resource = picked?.resources?.[0];
+    if (!resource) {
+      state.status = '未选择导出文件';
+      return;
+    }
+    const latest = await apiJson('resources/read', { resource });
+    if (latest.binary || typeof latest.content !== 'string') {
+      throw new Error('导出目标必须是已有的文本文件。');
+    }
+    await apiJson('resources/write', {
+      resource,
+      content: notebook.text || '',
+      expectedVersion: latest.version,
+      baseSha256: await sha256Text(latest.content),
+    });
+    state.status = `已导出 Notebook 到 ${resource.name || '目标文件'}`;
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+    state.status = 'Notebook 导出失败';
+  } finally {
+    state.busy = false;
+    render();
+  }
 }
 
 function buildCopilotRequest(promptOverride = '') {
@@ -1566,15 +1590,13 @@ function renderCopilotPanel() {
 
 function renderNotebookPanel() {
   const notebook = activeNotebook();
-  if (!notebook) return '<div class="copilot-empty"><p>尚未创建笔记本。</p></div>';
+  if (!notebook) return '<div class="copilot-empty"><p>尚未创建笔记本。</p><button class="button primary tiny" data-action="new-notebook">新建笔记本</button></div>';
   const deleteTarget = state.notebooks.find((item) => item.id === state.notebookDeleteId);
   const deletePrompt = deleteTarget
     ? `<div class="notebook-delete-prompt" role="alert"><span>删除“${escapeHtml(deleteTarget.title)}”？</span><button class="button danger tiny" data-action="confirm-delete-notebook" data-notebook-id="${escapeHtml(deleteTarget.id)}">删除</button><button class="button ghost tiny" data-action="cancel-delete-notebook">取消</button></div>`
     : '';
-  const exportLink = state.notebookExportUrl
-    ? `<div class="notebook-export-fallback"><a data-notebook-download-link href="${escapeHtml(state.notebookExportUrl)}" download="${escapeHtml(state.notebookExportName)}" target="_blank" rel="noopener">若未自动下载，点击此处保存 ${escapeHtml(state.notebookExportName)}</a></div>`
-    : '';
-  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="download-notebook">导出</button></div>${exportLink}<textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
+  const status = /Notebook|笔记本|导出/.test(state.status) ? `<div class="notebook-status" role="status">${escapeHtml(state.status)}</div>` : '';
+  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}" title="右键删除">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button><button class="button danger tiny" data-action="request-delete-active-notebook" title="删除当前笔记本">删除</button></div>${status}<textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
 }
 
 let resizeCleanup = null;
@@ -1745,12 +1767,13 @@ function render() {
       if (action === 'focus-annotation') focusAnnotation(annotationIdValue);
       if (action === 'new-notebook') createNotebookAction();
       if (action === 'select-notebook') selectNotebook(element.dataset.notebookId);
+      if (action === 'request-delete-active-notebook') requestNotebookDelete(state.activeNotebookId);
       if (action === 'confirm-delete-notebook') deleteNotebook(element.dataset.notebookId);
       if (action === 'cancel-delete-notebook') {
         state.notebookDeleteId = null;
         render();
       }
-      if (action === 'download-notebook') downloadNotebook();
+      if (action === 'export-notebook-resource') exportNotebookToResource();
       if (action === 'copilot-submit') {
         const prompt = root.querySelector('[data-copilot-prompt]')?.value || '';
         state.copilot.prompt = prompt;

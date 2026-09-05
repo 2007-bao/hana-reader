@@ -156,12 +156,16 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /data-notebook/);
   assert.match(panel, /contextmenu/);
   assert.match(panel, /deleteNotebook/);
-  assert.match(panel, /downloadNotebook/);
+  assert.match(panel, /export-notebook-resource/);
   assert.match(panel, /cancelAnnotationComposer/);
   assert.match(panel, /activeSelectionRect/);
   assert.match(panel, /annotation-composer-actions/);
   assert.match(panel, /requestNotebookDelete/);
-  assert.match(panel, /data-notebook-download-link/);
+  assert.match(panel, /exportNotebookToResource/);
+  assert.match(panel, /mode: 'file'/);
+  assert.match(panel, /capability: 'resource.write'/);
+  assert.doesNotMatch(panel, /window\.confirm/);
+  assert.doesNotMatch(panel, /createObjectURL/);
   assert.match(panel, /!event\.shiftKey/);
   assert.doesNotMatch(panel, /data-annotation-filter/);
   assert.doesNotMatch(panel, /annotation-sidebar/);

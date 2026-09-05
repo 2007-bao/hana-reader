@@ -50,7 +50,7 @@
 1. Copilot 依赖 Hana 宿主的 `model.sample` / `model:sample-text` 与可用 utility 文本模型。
 2. `resource.open` 的最终平台行为由宿主决定，本插件只请求 `mode: reveal`。
 3. 批注、Notebook、会话位置和 Copilot 历史尚未做跨设备 sidecar 同步。
-4. Notebook 目前只能导出本地内容，不负责创建新的 ResourceIO 文件。
+4. Notebook 导出通过 ResourceIO 选择已有文本文件并安全覆盖；当前不负责创建新的 ResourceIO 文件。
 5. 长文档仍采用一次性渲染；引入虚拟化前必须先保护选区、批注锚点和编辑器生命周期。
 6. 实际 Hana UI reload / 模型返回形状仍需在可用 dev loop 环境中手测。
 

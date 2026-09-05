@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.3.7';
+const PLUGIN_VERSION = '1.3.8';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -881,7 +881,7 @@ function renderTree() {
 }
 
 function renderCodeViewer(content, language) {
-  return `<div class="code-viewer">${String(content || '').replace(/\r\n?/g, '\n').split('\n').map((line, index) => {
+  return `<div class="code-viewer" data-language="${escapeHtml(language)}">${String(content || '').replace(/\r\n?/g, '\n').split('\n').map((line, index) => {
     const lineNumber = index + 1;
     return `<div class="code-line" data-line="${lineNumber}"><span class="line-number">${lineNumber}</span><code>${highlightCode(line, language)}</code></div>`;
   }).join('')}</div>`;

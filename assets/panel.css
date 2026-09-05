@@ -235,7 +235,7 @@ select:focus-visible {
 
 .file-panel,
 .copilot-panel {
-  background: var(--reader-middle-bg);
+  background: var(--reader-side-bg);
 }
 
 .file-panel {
@@ -2507,4 +2507,17 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   background: transparent;
   box-shadow: none;
   font-family: var(--reader-ui-font);
+}
+
+.code-viewer[data-language="json"] {
+  color: #20242a;
+}
+
+.code-viewer[data-language="json"] .hljs-attr,
+.code-viewer[data-language="json"] .hljs-string,
+.code-viewer[data-language="json"] .hljs-number,
+.code-viewer[data-language="json"] .hljs-literal,
+.code-viewer[data-language="json"] .hljs-punctuation {
+  color: #20242a;
+  font-weight: 400;
 }

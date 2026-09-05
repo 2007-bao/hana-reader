@@ -520,12 +520,6 @@ body[data-hana-theme="dark"] .tree-nested::before {
   padding: 24px clamp(20px, 5vw, 70px) 48px;
 }
 
-.reader-mode-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .editor-scroll {
   padding-top: 22px;
 }
@@ -1907,10 +1901,6 @@ body {
   white-space: nowrap;
 }
 
-.reader-floating-toolbar .reader-mode-actions {
-  gap: 3px;
-}
-
 .markdown-body h1,
 .markdown-editor .ProseMirror h1 {
   color: var(--maple-galaxy);
@@ -2633,4 +2623,64 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .code-viewer[data-language="json"] .hljs-punctuation {
   color: #20242a;
   font-weight: 400;
+}
+
+/* The read/edit control is the standalone Quiet native SVG, not a pair of buttons. */
+.reader-mode-toolbar {
+  gap: 8px;
+  min-height: 0;
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.reader-mode-knob {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(168px, 18vw, 198px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.reader-mode-knob:hover:not(:disabled) {
+  transform: none;
+}
+
+.reader-mode-knob:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.reader-mode-knob:focus-visible {
+  outline: 2px solid var(--reader-accent);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.reader-mode-knob-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1981 / 793;
+  border: 0;
+  pointer-events: none;
+}
+
+.editor-surface .editor-scroll {
+  padding-top: 88px;
+}
+
+@media (max-width: 560px) {
+  .reader-mode-knob {
+    width: 174px;
+  }
 }

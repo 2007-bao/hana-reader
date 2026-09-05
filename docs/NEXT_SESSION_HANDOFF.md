@@ -8,7 +8,7 @@
 - 当前版本：`v1.4.2`
 - 稳定基线：`main` / `v0.9.0`
 - 当前目标：完成批注选区、下划线和 Notebook 修复后的测试、构建和本地提交
-- 工作区无关目录：`knob-motion-lab/`，不要查看、修改、提交或打包
+- `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建
 
 ## 本阶段已经完成
 
@@ -16,7 +16,8 @@
 
 - 左侧只保留选择文件夹、刷新、打开当前目录和折叠；前端搜索与最近打开入口已移除。
 - 文件夹使用黄色闭合 / 展开图标，README、Markdown、JSON、压缩包、代码和样式文件有类型图标。
-- 中间栏自适应宽度，阅读区左右留白统一，读写控件悬浮在右上方。
+- 中间栏自适应宽度，阅读区左右留白统一，Quiet 原生 SVG 读写旋钮固定在右上方。
+- 旋钮左侧为只读、右侧为编辑；点击 / 方向键先运行可中断转场，再切换底层阅读器状态。
 - h1 / h2 使用 Hana 蓝，h3-h6 使用正文色；代码与引用竖线使用统一蓝色。
 - 右侧仅有 AI 辅助和 Notebook 两个视图。
 
@@ -59,9 +60,10 @@
 1. 先运行 `npm test`，确认版本检查、构建和顺序测试全部通过。
 2. 查看 `git diff --stat` 与 `git status --short -- . ':(exclude)knob-motion-lab'`，确认变更范围。
 3. 只在本地创建有意义的 commit；未经负责人确认不要 push、建 PR、合并或发布标签。
-4. 后续优先做批注 / Notebook 导入导出，再考虑轻量阅读历史和长文档性能。
-5. 清理死 CSS 前先生成选择器使用清单；不要直接删除可能被后续 UI 复用的规则。
-6. 宿主 dev loop 恢复后手测：打开 Markdown → 选区批注 / 悬浮气泡 → Ctrl-Z；编辑 → 自动保存 → Ctrl-Z；AI 提问；Notebook 编辑 / 导出；打开本地目录。
+4. 当前旋钮集成仍是未单独发布的实验功能；若继续调整，优先只改 `src/panel.js`、`assets/panel.css` 和 `assets/native-knob.svg`。
+5. 后续再考虑批注 / Notebook 导入导出、轻量阅读历史和长文档性能。
+6. 清理死 CSS 前先生成选择器使用清单；不要直接删除可能被后续 UI 复用的规则。
+7. 宿主 dev loop 恢复后手测：打开 Markdown → 旋钮切换只读 / 编辑 → 选区批注 / 悬浮气泡 → Ctrl-Z；编辑 → 自动保存 → Ctrl-Z；AI 提问；Notebook 编辑 / 导出；打开本地目录。
 
 ## 关键实现入口
 
@@ -76,6 +78,6 @@
 ## 开发纪律
 
 - 开始前确认 `git branch --show-current` 和 `git status`。
-- 不要查看、修改、提交或打包 `knob-motion-lab/`。
+- 除非任务明确要求，不修改或打包 `knob-motion-lab/`；插件侧使用 `assets/native-knob.svg`。
 - 修改后必须运行 `npm test`，不要只运行 build。
 - 不提交 API Key、Cookie、个人文件、会话导出或真实项目内容。

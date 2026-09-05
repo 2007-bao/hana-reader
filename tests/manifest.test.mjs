@@ -52,6 +52,7 @@ test('reader source, built assets, and cache-busting route are present', async (
     'assets/hana-bridge.js',
     'assets/panel.js',
     'assets/panel.css',
+    'assets/native-knob.svg',
     'assets/fonts/MapleMono-Regular.woff2',
     'assets/fonts/MapleMono-Italic.woff2',
     'assets/fonts/OFL.txt',
@@ -64,6 +65,7 @@ test('reader source, built assets, and cache-busting route are present', async (
 
   const panelSource = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
   const panelBundle = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
+  const nativeKnob = await fs.readFile(path.join(root, 'assets/native-knob.svg'), 'utf8');
   const route = await fs.readFile(path.join(root, 'routes/ui.js'), 'utf8');
   const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
   assert.ok(!panelSource.includes("from './hana-bridge.js'"));
@@ -95,7 +97,13 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /toggle-html-preview/);
   assert.match(panelSource, /MAX_EDIT_BYTES = 512 \* 1024/);
   assert.match(panelSource, /超过 512 KB，仅只读预览/);
-  assert.match(panelSource, /data-action="read-mode"/);
+  assert.match(panelSource, /data-action="toggle-reader-mode"/);
+  assert.match(panelSource, /pluginAssetUrl\('native-knob\.svg'\)/);
+  assert.match(panelSource, /setEmbeddedKnobState/);
+  assert.match(nativeKnob, /id="slider-wrap"/);
+  assert.match(nativeKnob, /id="knob-motion"/);
+  assert.match(nativeKnob, /data-state="left"/);
+  assert.match(nativeKnob, /prefers-reduced-motion/);
   assert.match(panelSource, /只读/);
   assert.match(panelSource, /编辑/);
   assert.match(panelSource, /reader-floating-toolbar/);
@@ -176,6 +184,8 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(annotationEngine, /annotation-comment/);
   assert.match(annotationEngine, /dataset\.annotationNote/);
   assert.match(css, /\.reader-floating-toolbar/);
+  assert.match(css, /\.reader-mode-knob/);
+  assert.match(css, /\.reader-mode-knob-art/);
   assert.doesNotMatch(css, /\.file-panel\.is-collapsed \.panel-heading > div:first-child/);
   assert.match(css, /\.file-panel-expand/);
   assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);

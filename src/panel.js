@@ -9,6 +9,7 @@ const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
 const PLUGIN_VERSION = '1.4.2';
+const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -27,6 +28,10 @@ let sessionSaveTimer = null;
 let activeSelectionViewer = null;
 let activeSelectionRect = null;
 let suppressEditorRemount = false;
+let readerModeTransitionTimer = 0;
+let readerModeTransitionTarget = null;
+let readerModeTransitionSource = null;
+let readerModeTransitionToken = 0;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -106,6 +111,14 @@ function pluginIdFromRoute() {
   const match = /^\/api\/plugins\/([^/]+)(?:\/|$)/.exec(window.location.pathname || '');
   if (!match) throw new Error('Unable to resolve the current Hana plugin id.');
   return decodeURIComponent(match[1]);
+}
+
+function pluginAssetUrl(assetName) {
+  const url = new URL(`assets/${assetName}`, window.location.href);
+  const token = new URLSearchParams(window.location.search).get('token');
+  url.searchParams.set('v', PLUGIN_VERSION);
+  if (token) url.searchParams.set('token', token);
+  return url.href;
 }
 
 function apiFetch(relativePath, init = {}) {
@@ -928,6 +941,7 @@ async function flushAutoSave() {
 }
 
 function requestTransition(_label, transition) {
+  cancelReaderModeTransition();
   const runTransition = async () => {
     if (state.editing) {
       await flushAutoSave();
@@ -954,6 +968,117 @@ async function stopEditing() {
     delete state.current.conflict;
   }
   render();
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
+
+function setEmbeddedKnobState(object, nextState, animate = false) {
+  if (!object) return false;
+  let embeddedDocument;
+  try {
+    embeddedDocument = object.contentDocument || object.getSVGDocument?.();
+  } catch {
+    return false;
+  }
+  const svg = embeddedDocument?.documentElement;
+  if (!svg) return false;
+  const normalizedState = nextState === 'right' ? 'right' : 'left';
+  const setState = embeddedDocument.defaultView?.setKnobState;
+  if (typeof setState === 'function') {
+    setState(normalizedState, animate);
+  } else {
+    const shouldAnimate = animate && !prefersReducedMotion();
+    svg.dataset.motion = shouldAnimate ? 'animated' : 'instant';
+    svg.dataset.state = normalizedState;
+    svg.classList.toggle('is-transitioning', shouldAnimate);
+    if (shouldAnimate) {
+      window.setTimeout(() => svg.classList.remove('is-transitioning'), 110);
+      window.setTimeout(() => svg.removeAttribute('data-motion'), READER_MODE_SETTLE_MS + 20);
+    } else {
+      svg.classList.remove('is-transitioning');
+      window.setTimeout(() => svg.removeAttribute('data-motion'), 0);
+    }
+  }
+  const hitArea = embeddedDocument.getElementById('hit-area');
+  if (hitArea) {
+    const isRight = normalizedState === 'right';
+    hitArea.setAttribute('aria-pressed', String(isRight));
+    hitArea.setAttribute('aria-label', isRight ? '切换到旋钮在左侧的状态' : '切换到旋钮在右侧的状态');
+  }
+  return true;
+}
+
+function bindReaderModeKnob() {
+  const object = root?.querySelector('.reader-mode-knob-art');
+  if (!object) return;
+  const sync = () => setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
+  object.addEventListener('load', sync, { once: true });
+  sync();
+}
+
+function cancelReaderModeTransition() {
+  window.clearTimeout(readerModeTransitionTimer);
+  readerModeTransitionTimer = 0;
+  readerModeTransitionTarget = null;
+  readerModeTransitionSource = null;
+  readerModeTransitionToken += 1;
+}
+
+function commitReaderModeTransition(source, targetEditing, token) {
+  if (
+    token !== readerModeTransitionToken
+    || readerModeTransitionSource !== source
+    || readerModeTransitionTarget !== targetEditing
+  ) return;
+  readerModeTransitionTimer = 0;
+  readerModeTransitionTarget = null;
+  readerModeTransitionSource = null;
+  if (state.current !== source) return;
+  if (targetEditing) {
+    if (!state.editing) void startEditing();
+    return;
+  }
+  if (state.editing) void stopEditingFromKnob();
+}
+
+function requestReaderMode(control, targetEditing) {
+  if (!state.current || state.busy || state.restoring) return;
+  const source = state.current;
+  const object = control?.querySelector('.reader-mode-knob-art');
+  setEmbeddedKnobState(object, targetEditing ? 'right' : 'left', true);
+  cancelReaderModeTransition();
+  readerModeTransitionSource = source;
+  readerModeTransitionTarget = targetEditing;
+  const token = readerModeTransitionToken;
+  if (prefersReducedMotion()) {
+    commitReaderModeTransition(source, targetEditing, token);
+    return;
+  }
+  readerModeTransitionTimer = window.setTimeout(() => {
+    commitReaderModeTransition(source, targetEditing, token);
+  }, READER_MODE_SETTLE_MS);
+}
+
+function toggleReaderMode(control) {
+  const hasPendingTarget = readerModeTransitionSource === state.current && readerModeTransitionTarget !== null;
+  const currentTarget = hasPendingTarget ? readerModeTransitionTarget : state.editing;
+  requestReaderMode(control, !currentTarget);
+}
+
+function handleReaderModeKeydown(event) {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  requestReaderMode(event.currentTarget, event.key === 'ArrowRight');
+}
+
+async function stopEditingFromKnob() {
+  const source = state.current;
+  await stopEditing();
+  if (state.current === source && state.editing) {
+    setEmbeddedKnobState(root.querySelector('.reader-mode-knob-art'), 'right');
+  }
 }
 
 async function saveCurrent({ preserveEditor = false } = {}) {
@@ -1522,6 +1647,12 @@ function captureViewerSelection(viewer) {
   createSelectionToolbar(viewer, activeSelectionRect);
 }
 
+function renderReaderModeKnob() {
+  const editing = state.editing;
+  const label = editing ? '切换为只读' : '切换为编辑';
+  return `<button type="button" class="reader-mode-knob" data-action="toggle-reader-mode" aria-pressed="${editing}" aria-label="${label}" title="${label}" ${state.busy ? 'disabled' : ''}><object class="reader-mode-knob-art" data="${escapeHtml(pluginAssetUrl('native-knob.svg'))}" type="image/svg+xml" aria-hidden="true" tabindex="-1"></object></button>`;
+}
+
 function renderReaderPane() {
   if (!state.current) {
     return `<div class="welcome-pane">
@@ -1542,7 +1673,7 @@ function renderReaderPane() {
     const conflictNotice = current.conflict
       ? `<div class="conflict-notice" role="alert"><strong>远端文件已变化</strong><p>本地草稿仍保留，未自动覆盖远端内容。你可以载入远端版本，或明确确认用本地草稿覆盖。</p><div class="conflict-actions"><button class="button ghost" data-action="reload-conflict" ${typeof current.conflict.content === 'string' ? '' : 'disabled'}>载入远端版本</button><button class="button danger" data-action="overwrite-conflict">确认覆盖远端</button><button class="button tiny" data-action="discard-draft">放弃草稿</button></div></div>`
       : '';
-    return `<div class="reader-surface editor-surface"><div class="reader-floating-toolbar" role="toolbar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button>${current.saveFailed ? '<button class="button danger tiny" data-action="discard-draft">放弃草稿</button>' : ''}</div></div>${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
+    return `<div class="reader-surface editor-surface"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span>${current.saveFailed ? '<button class="button danger tiny" data-action="discard-draft">放弃草稿</button>' : ''}${renderReaderModeKnob()}</div>${conflictNotice}<div class="editor-scroll">${editorMarkup}</div></div>`;
   }
 
   const body = current.binary
@@ -1559,7 +1690,8 @@ function renderReaderPane() {
   const htmlAction = current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES
     ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '源码' : '预览'}</button>`
     : '';
-  return `<div class="reader-surface"><div class="viewer-scroll"><div class="reader-floating-toolbar" role="toolbar"><span class="reader-mode-label">只读</span>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${htmlAction}${editorAction}</div>${body}</div></div>`;
+  const modeControl = canEdit ? renderReaderModeKnob() : '<span class="reader-mode-label">只读</span>';
+  return `<div class="reader-surface"><div class="viewer-scroll"><div class="reader-floating-toolbar reader-mode-toolbar" role="toolbar">${htmlAction}${editorAction}${modeControl}</div>${body}</div></div>`;
 }
 
 function renderCopilot() {
@@ -1719,6 +1851,7 @@ function render() {
     </div>
   </div>`;
 
+  bindReaderModeKnob();
   const article = root.querySelector('.viewer-scroll .markdown-body');
   if (article && state.current?.language === 'markdown') {
     applyAnnotationMarks(article, state.annotations);
@@ -1775,8 +1908,7 @@ function render() {
         state.rightView = 'notebook';
         render();
       }
-      if (action === 'edit-file') startEditing();
-      if (action === 'read-mode') requestTransition('切换为只读', stopEditing);
+      if (action === 'toggle-reader-mode') toggleReaderMode(element);
       if (action === 'toggle-html-preview') {
         state.current.htmlPreview = !state.current.htmlPreview;
         render();
@@ -1807,6 +1939,9 @@ function render() {
       if (action === 'retry-copilot') retryCopilot();
     });
   });
+
+  const readerModeKnob = root.querySelector('[data-action="toggle-reader-mode"]');
+  if (readerModeKnob) readerModeKnob.addEventListener('keydown', handleReaderModeKeydown);
 
   const notebookEditor = root.querySelector('[data-notebook]');
   if (notebookEditor) {
@@ -1874,6 +2009,7 @@ function render() {
 
 window.addEventListener('keydown', handleGlobalKeydown);
 window.addEventListener('beforeunload', () => {
+  cancelReaderModeTransition();
   window.clearTimeout(sessionSaveTimer);
   sessionSaveTimer = null;
   saveSession();

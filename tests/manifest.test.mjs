@@ -83,6 +83,9 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /编辑自动保存/);
   assert.match(panelSource, /reader-modebar/);
   assert.match(panelSource, /panel-resizer/);
+  assert.match(panelSource, /treeIconSvg/);
+  assert.match(panelSource, /fileIconType/);
+  assert.match(panelSource, /previousTreeScroll/);
   assert.match(panelSource, /toggle-left/);
   assert.match(panelSource, /toggle-right/);
   assert.match(panelSource, /pointerdown/);
@@ -123,6 +126,10 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /\.code-viewer \.hljs-keyword/);
   assert.match(css, /font-family: "Maple Mono"/);
   assert.match(css, /--maple-purple/);
+  assert.match(css, /--maple-sea: #1E90FF/);
+  assert.match(css, /--maple-galaxy: #446CCF/);
+  assert.match(css, /--maple-morning: #89ABE3/);
+  assert.match(css, /--maple-stream: #88C6ED/);
   assert.match(css, /--reader-code-string: var\(--maple-green\)/);
   assert.match(css, /body\[data-hana-theme="dark"\]/);
   assert.match(css, /--reader-code-keyword: var\(--maple-purple\)/);

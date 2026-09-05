@@ -39,7 +39,7 @@
   --maple-galaxy: #446CCF;
   --maple-lake: #007BA7;
   --maple-ocean: #006994;
-  --maple-red: var(--maple-sea);
+  --maple-red: var(--maple-galaxy);
   --maple-orange: var(--maple-aurora);
   --maple-yellow: var(--maple-stream);
   --maple-green: var(--maple-lake);
@@ -52,7 +52,7 @@
   --reader-code-string: var(--maple-lake);
   --reader-code-comment: var(--maple-gray);
   --reader-code-number: var(--reader-code-plain);
-  --reader-code-title: var(--maple-sea);
+  --reader-code-title: var(--maple-lake);
   --reader-code-attr: var(--maple-galaxy);
   --reader-ui-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --reader-code-font: "Maple Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
@@ -777,7 +777,7 @@ button {
 }
 
 .markdown-editor .ProseMirror blockquote {
-  border-left: 3px solid color-mix(in srgb, var(--reader-accent) 52%, transparent);
+  border-left: 3px solid var(--maple-galaxy);
   padding-left: 1em;
   color: var(--reader-muted);
 }
@@ -947,7 +947,7 @@ button {
 
 .markdown-body blockquote {
   margin: 1em 0;
-  border-left: 3px solid color-mix(in srgb, var(--reader-accent) 52%, transparent);
+  border-left: 3px solid var(--maple-galaxy);
   padding: 0.25em 1em;
   color: var(--reader-muted);
   background: var(--reader-soft);
@@ -1294,7 +1294,7 @@ button {
 
 .markdown-body h2,
 .markdown-editor .ProseMirror h2 {
-  color: var(--maple-sea);
+  color: var(--maple-lake);
   font-size: 23px;
 }
 
@@ -1340,6 +1340,7 @@ button {
 .markdown-code,
 .code-viewer {
   border-color: var(--reader-divider);
+  border-left: 3px solid var(--maple-galaxy);
   color: var(--reader-code-plain);
   background: var(--reader-code-bg);
   font-size: 12.5px;
@@ -1402,7 +1403,7 @@ button {
 
 .markdown-body blockquote,
 .markdown-editor .ProseMirror blockquote {
-  border-left-color: var(--maple-orange);
+  border-left-color: var(--maple-galaxy);
 }
 
 .markdown-body th {
@@ -1544,6 +1545,10 @@ body {
   border-radius: 6px;
   padding-top: 4px;
   padding-bottom: 4px;
+}
+
+.tree-row.directory {
+  margin-top: 5px;
 }
 
 .tree-icon svg,

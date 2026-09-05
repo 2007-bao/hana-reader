@@ -5,7 +5,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.8.1';
+const PLUGIN_VERSION = '0.8.2';
 const MAX_EDIT_BYTES = 512 * 1024;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
@@ -655,7 +655,7 @@ function renderTreeNode(node, depth, index) {
       : '<div class="tree-empty">空文件夹</div>'}</div>`
     : '';
 
-  return `<button class="tree-row ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" style="--depth:${depth}" title="${escapeHtml(node.name)}">
+  return `<button class="tree-row ${directory ? 'directory' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" style="--depth:${depth}" title="${escapeHtml(node.name)}">
     <span class="tree-chevron">${leading}</span>
     <span class="tree-icon ${iconType}" aria-hidden="true">${treeIconSvg(directory, node.expanded)}</span>
     <span class="tree-name">${escapeHtml(node.name)}</span>

@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.5.0';
+const PLUGIN_VERSION = '1.5.1';
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
@@ -1729,13 +1729,17 @@ function renderReaderModeDock() {
   </div></div>`;
 }
 
+function renderCollapseIcon() {
+  return '<svg class="panel-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"></rect><path d="M9 4v16"></path></svg>';
+}
+
 function renderCollapseWaves(side) {
-  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-waves.png'))}" alt=""></div>`;
+  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""></div>`;
 }
 
 function renderReaderPane() {
   if (!state.current) {
-    return `<div class="welcome-pane"><div class="welcome-art-wrap"><img class="welcome-art" src="${escapeHtml(pluginAssetUrl('reader-empty.png'))}" alt=""><button class="welcome-butterfly-hit" data-action="pick" aria-label="选择文件夹" title="选择文件夹"></button></div></div>`;
+    return `<div class="welcome-pane"><div class="welcome-art-wrap"><img class="welcome-art" src="${escapeHtml(pluginAssetUrl('reader-empty.svg'))}" alt=""><button class="welcome-butterfly-hit" data-action="pick" aria-label="选择文件夹" title="选择文件夹"></button></div></div>`;
   }
 
   const current = state.current;
@@ -1765,10 +1769,10 @@ function renderReaderPane() {
 
 function renderCopilot() {
   if (state.rightCollapsed) {
-    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏"><img src="${escapeHtml(pluginAssetUrl('collapse-right.png'))}" alt=""></button></aside>`;
+    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></aside>`;
   }
   return `<aside class="copilot-panel">
-    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏"><img src="${escapeHtml(pluginAssetUrl('collapse-right.png'))}" alt=""></button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
+    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
     ${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}
   </aside>`;
 }
@@ -1794,7 +1798,7 @@ function renderCopilotPanel() {
     <div class="copilot-message-body">${message.role === 'assistant' ? renderAssistantText(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
   </div>`).join('');
   return `<div class="copilot-content">
-    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.png'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
+    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.svg'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
     ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
     <div class="copilot-composer"><textarea data-copilot-prompt rows="1" placeholder="询问当前文件……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="copilot-send" data-action="copilot-submit" aria-label="发送" title="发送（Enter）" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '…' : '↑'}</button></div>
   </div>`;
@@ -1867,6 +1871,7 @@ function beginResize(side, event) {
   resizeCleanup?.();
   const workspace = root.querySelector('.workspace');
   if (!workspace) return;
+  workspace.classList.add('is-resizing');
   const startX = event.clientX;
   const startWidth = side === 'left' ? state.leftWidth : state.rightWidth;
   const update = (moveEvent) => {
@@ -1880,6 +1885,7 @@ function beginResize(side, event) {
     window.removeEventListener('pointermove', update);
     window.removeEventListener('pointerup', finish);
     resizeCleanup = null;
+    workspace.classList.remove('is-resizing');
     saveLayout();
     render();
   };
@@ -1918,18 +1924,25 @@ function render() {
   };
   collect(state.rootNode);
 
-  workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">
+  const workspaceElement = workspaceBody.querySelector('.workspace');
+  const workspaceMarkup = `
       <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
-        <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.png'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : '<button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树"><img src="' + escapeHtml(pluginAssetUrl('collapse-left.png')) + '" alt=""></button>'}</div></div>
-        ${state.leftCollapsed ? `${renderCollapseWaves('left')}<button class="panel-collapse file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树"><img src="${escapeHtml(pluginAssetUrl('collapse-left.png'))}" alt=""></button>` : ''}
+        <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.svg'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : `<button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">${renderCollapseIcon()}</button>`}</div></div>
+        ${state.leftCollapsed ? `${renderCollapseWaves('left')}<button class="panel-collapse file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树">${renderCollapseIcon()}</button>` : ''}
         <div class="tree-scroll">${tree}</div>
       </aside>
       <div class="panel-resizer" data-resizer="left" role="separator" aria-label="调整文件树宽度"></div>
       <main class="reader-panel">${renderReaderPane()}</main>
       <div class="panel-resizer" data-resizer="right" role="separator" aria-label="调整阅读助手宽度"></div>
       ${renderCopilot()}
-    </div>
-  </div>`;
+  `;
+  if (workspaceElement) {
+    workspaceElement.style.setProperty('--left-panel-width', `${state.leftCollapsed ? 38 : state.leftWidth}px`);
+    workspaceElement.style.setProperty('--right-panel-width', `${state.rightCollapsed ? 38 : state.rightWidth}px`);
+    workspaceElement.innerHTML = workspaceMarkup;
+  } else {
+    workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">${workspaceMarkup}</div>`;
+  }
 
   bindReaderModeKnob();
   const article = root.querySelector('.viewer-scroll .markdown-body');

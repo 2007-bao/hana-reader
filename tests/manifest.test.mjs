@@ -106,6 +106,8 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /data-action="toggle-reader-mode"/);
   assert.match(panelSource, /pluginAssetUrl\('native-knob\.svg'\)/);
   assert.match(panelSource, /setEmbeddedKnobState/);
+  assert.match(panelSource, /transitionend/);
+  assert.match(panelSource, /onSettled/);
   assert.match(panelSource, /ensureWorkspaceShell/);
   assert.match(panelSource, /workspaceBody/);
   assert.match(panelSource, /reader-mode-mount/);

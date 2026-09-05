@@ -977,7 +977,7 @@ function prefersReducedMotion() {
   return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 }
 
-function setEmbeddedKnobState(object, nextState, animate = false) {
+function setEmbeddedKnobState(object, nextState, animate = false, options = {}) {
   if (!object) return false;
   let embeddedDocument;
   try {
@@ -988,11 +988,11 @@ function setEmbeddedKnobState(object, nextState, animate = false) {
   const svg = embeddedDocument?.documentElement;
   if (!svg) return false;
   const normalizedState = nextState === 'right' ? 'right' : 'left';
+  const shouldAnimate = animate && !prefersReducedMotion();
   const setState = embeddedDocument.defaultView?.setKnobState;
   if (typeof setState === 'function') {
     setState(normalizedState, animate);
   } else {
-    const shouldAnimate = animate && !prefersReducedMotion();
     svg.dataset.motion = shouldAnimate ? 'animated' : 'instant';
     svg.dataset.state = normalizedState;
     svg.classList.toggle('is-transitioning', shouldAnimate);
@@ -1009,6 +1009,27 @@ function setEmbeddedKnobState(object, nextState, animate = false) {
     const isRight = normalizedState === 'right';
     hitArea.setAttribute('aria-pressed', String(isRight));
     hitArea.setAttribute('aria-label', isRight ? '切换到旋钮在左侧的状态' : '切换到旋钮在右侧的状态');
+  }
+
+  const onSettled = typeof options.onSettled === 'function' ? options.onSettled : null;
+  if (onSettled && shouldAnimate) {
+    const transitionNode = embeddedDocument.getElementById('knob-motion') || embeddedDocument.getElementById('knob');
+    let settled = false;
+    let settleTimer = 0;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(settleTimer);
+      transitionNode?.removeEventListener('transitionend', handleTransitionEnd);
+      onSettled();
+    };
+    const handleTransitionEnd = (event) => {
+      if (event.target === transitionNode && (!event.propertyName || event.propertyName === 'transform')) finish();
+    };
+    if (transitionNode) transitionNode.addEventListener('transitionend', handleTransitionEnd);
+    settleTimer = window.setTimeout(finish, READER_MODE_SETTLE_MS + 80);
+  } else if (onSettled) {
+    onSettled();
   }
   return true;
 }
@@ -1044,7 +1065,11 @@ function bindReaderModeKnob() {
   const object = root?.querySelector('.reader-mode-knob-art');
   const control = root?.querySelector('.reader-mode-knob');
   if (object) {
-    const sync = () => setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
+    const sync = () => {
+      const hasPendingTarget = readerModeTransitionSource === state.current && readerModeTransitionTarget !== null;
+      if (hasPendingTarget) return;
+      setEmbeddedKnobState(object, state.editing ? 'right' : 'left');
+    };
     if (!readerModeKnobBindings.has(object)) {
       object.addEventListener('load', sync);
       readerModeKnobBindings.add(object);
@@ -1087,18 +1112,20 @@ function requestReaderMode(control, targetEditing) {
   if (!state.current || state.busy || state.restoring) return;
   const source = state.current;
   const object = control?.querySelector('.reader-mode-knob-art');
-  setEmbeddedKnobState(object, targetEditing ? 'right' : 'left', true);
   cancelReaderModeTransition();
   readerModeTransitionSource = source;
   readerModeTransitionTarget = targetEditing;
   const token = readerModeTransitionToken;
+  const settle = () => commitReaderModeTransition(source, targetEditing, token);
   if (prefersReducedMotion()) {
-    commitReaderModeTransition(source, targetEditing, token);
+    setEmbeddedKnobState(object, targetEditing ? 'right' : 'left', false);
+    settle();
     return;
   }
-  readerModeTransitionTimer = window.setTimeout(() => {
-    commitReaderModeTransition(source, targetEditing, token);
-  }, READER_MODE_SETTLE_MS);
+  const started = setEmbeddedKnobState(object, targetEditing ? 'right' : 'left', true, { onSettled: settle });
+  if (!started) {
+    readerModeTransitionTimer = window.setTimeout(settle, READER_MODE_SETTLE_MS);
+  }
 }
 
 function toggleReaderMode(control) {

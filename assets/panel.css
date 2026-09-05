@@ -2756,8 +2756,9 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 .file-panel-brand {
   display: block;
-  width: 116px;
-  height: 39px;
+  width: 96px;
+  max-width: calc(100% - 110px);
+  height: 32px;
   object-fit: contain;
   object-position: left center;
 }

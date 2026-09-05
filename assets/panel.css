@@ -30,7 +30,9 @@
   --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
-  --reader-code-bg: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-middle-bg));
+  --reader-code-bg: #f5f6f7;
+  --reader-heading: #20242a;
+  --reader-scroll-thumb: #9aa1aa;
   --maple-morning: #9bc9ff;
   --maple-aurora: #59d2e5;
   --maple-ice: #73dff0;
@@ -77,6 +79,8 @@ body[data-hana-theme="dark"] {
   --reader-code-number: var(--reader-code-plain);
   --reader-code-title: var(--maple-stream);
   --reader-code-attr: var(--maple-morning);
+  --reader-heading: #f0f2f5;
+  --reader-scroll-thumb: #7d8792;
 }
 
 * {
@@ -315,23 +319,6 @@ select:focus-visible {
   flex: 1 1 auto;
   overflow: auto;
   padding: 0 8px 16px;
-}
-
-.tree-root-name {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  overflow: hidden;
-  padding: 7px 9px 8px;
-  color: var(--reader-text);
-  font-size: 12px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.folder-dot {
-  color: var(--reader-accent);
 }
 
 .tree-content {
@@ -1050,19 +1037,6 @@ body[data-hana-theme="dark"] .tree-nested::before {
   line-height: 1.75;
 }
 
-.bottom-bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  height: 36px;
-  flex: 0 0 36px;
-  padding: 0 18px;
-  border-top: 1px solid var(--reader-border);
-  color: var(--reader-muted);
-  font-size: 10px;
-  line-height: 36px;
-}
-
 .markdown-body {
   max-width: 780px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
@@ -1352,8 +1326,7 @@ body {
   margin-top: 5px;
 }
 
-.tree-icon svg,
-.folder-dot svg {
+.tree-icon svg {
   display: block;
   width: 16px;
   height: 16px;
@@ -1364,8 +1337,7 @@ body {
   stroke-width: 1.6;
 }
 
-.tree-icon.folder,
-.folder-dot {
+.tree-icon.folder {
   color: var(--maple-blue);
 }
 
@@ -1712,13 +1684,6 @@ body {
   .editor-scroll {
     padding: 22px 16px 42px;
   }
-
-  .bottom-bar {
-    height: 30px;
-    flex-basis: 30px;
-    padding: 0 12px;
-    line-height: 30px;
-  }
 }
 
 /* v1.2 visual refinement: compact tree, vivid Hana-blue surfaces, and floating reader controls. */
@@ -1766,8 +1731,7 @@ body {
   padding-bottom: 2px;
 }
 
-.tree-icon.folder,
-.folder-dot {
+.tree-icon.folder {
   color: #e3b341;
 }
 
@@ -2060,4 +2024,260 @@ body {
 
 .annotation-underline {
   text-decoration-color: var(--reader-accent);
+}
+
+/* v1.3 clean reading pass: fewer rows, neutral text, and a quieter conversation surface. */
+.tree-row {
+  position: relative;
+  z-index: 1;
+  min-height: 20px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  font-size: 11px;
+}
+
+.tree-name {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.tree-size {
+  font-size: 9px;
+}
+
+.tree-row.directory {
+  margin-top: 3px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.tree-nested .tree-row.directory {
+  margin-top: 2px;
+}
+
+.tree-nested .tree-row:not(.directory) {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.tree-nested::before {
+  left: calc(8px + var(--nested-depth) * 14px + 7px);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6,
+.markdown-editor .ProseMirror h1,
+.markdown-editor .ProseMirror h2,
+.markdown-editor .ProseMirror h3,
+.markdown-editor .ProseMirror h4,
+.markdown-editor .ProseMirror h5,
+.markdown-editor .ProseMirror h6 {
+  color: var(--reader-heading);
+}
+
+.markdown-body ul > li::marker,
+.markdown-body ol > li::marker,
+.markdown-editor .ProseMirror li::marker {
+  color: var(--reader-heading);
+}
+
+.markdown-body th {
+  color: var(--reader-heading);
+  background: transparent;
+}
+
+.markdown-body tr:nth-child(even) td {
+  background: transparent;
+}
+
+.markdown-code,
+.code-viewer {
+  background: #f5f6f7;
+}
+
+.viewer-scroll,
+.editor-scroll,
+.tree-scroll,
+.copilot-scroll,
+.code-viewer,
+.source-editor {
+  scrollbar-color: var(--reader-scroll-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.viewer-scroll::-webkit-scrollbar,
+.editor-scroll::-webkit-scrollbar,
+.tree-scroll::-webkit-scrollbar,
+.copilot-scroll::-webkit-scrollbar,
+.code-viewer::-webkit-scrollbar,
+.source-editor::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.viewer-scroll::-webkit-scrollbar-thumb,
+.editor-scroll::-webkit-scrollbar-thumb,
+.tree-scroll::-webkit-scrollbar-thumb,
+.copilot-scroll::-webkit-scrollbar-thumb,
+.code-viewer::-webkit-scrollbar-thumb,
+.source-editor::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--reader-scroll-thumb);
+  background-clip: padding-box;
+}
+
+.copilot-content {
+  padding: 0;
+}
+
+.copilot-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px 12px;
+}
+
+.copilot-message {
+  width: fit-content;
+  max-width: 92%;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.copilot-message.user {
+  align-self: flex-end;
+  background: transparent;
+}
+
+.copilot-message-label {
+  margin: 0 0 4px 4px;
+  color: var(--reader-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.copilot-message-body {
+  border: 1px solid var(--reader-border);
+  border-radius: 12px 12px 12px 4px;
+  padding: 9px 11px;
+  background: var(--reader-card);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.copilot-message.user .copilot-message-label {
+  margin-right: 4px;
+  text-align: right;
+}
+
+.copilot-message.user .copilot-message-body {
+  border-color: color-mix(in srgb, var(--reader-accent) 45%, var(--reader-border));
+  border-radius: 12px 12px 4px 12px;
+  color: #fff;
+  background: var(--reader-accent);
+}
+
+.copilot-message.user .copilot-message-body p,
+.copilot-message.user .copilot-message-body .copilot-thinking {
+  color: inherit;
+}
+
+.copilot-empty.compact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 190px;
+  padding: 36px 22px;
+  text-align: left;
+}
+
+.copilot-empty-mark {
+  margin-right: 10px;
+  color: var(--reader-accent);
+  font-size: 18px;
+}
+
+.copilot-empty h3 {
+  margin: 0 0 5px;
+  font-family: var(--reader-ui-font);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.copilot-empty p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.copilot-composer {
+  align-items: flex-end;
+  margin: 0 12px 12px;
+  border: 1px solid var(--reader-border);
+  border-radius: 14px;
+  padding: 6px 6px 6px 11px;
+  background: var(--reader-card);
+  box-shadow: 0 5px 16px rgba(32, 36, 42, 0.06);
+}
+
+.copilot-composer textarea {
+  min-height: 26px;
+  max-height: 130px;
+  border: 0;
+  padding: 5px 0;
+  resize: none;
+  background: transparent;
+  font-size: 12px;
+}
+
+.copilot-composer textarea:focus {
+  box-shadow: none;
+}
+
+.copilot-send {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--reader-accent);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.copilot-send:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.annotation-composer-popover {
+  width: min(250px, calc(100% - 24px));
+  gap: 0;
+  padding: 5px;
+  border-radius: 10px;
+}
+
+.annotation-composer-popover textarea {
+  min-height: 38px;
+  max-height: 150px;
+  border: 0;
+  padding: 6px 7px;
+  background: transparent;
+  font-size: 12px;
+}
+
+.annotation-composer-popover textarea:focus {
+  border: 0;
+  box-shadow: none;
 }

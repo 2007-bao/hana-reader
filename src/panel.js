@@ -1,6 +1,6 @@
 import { highlightCode, renderMarkdown, sanitizeHtmlPreview } from './markdown-engine.js';
 import { mountMarkdownEditor } from './markdown-editor.js';
-import { applyAnnotationMarks, selectionAnchor } from './annotation-engine.js';
+import { applyAnnotationMarks, findAnnotationPosition, selectionAnchor } from './annotation-engine.js';
 import { annotationResourceKey, loadAnnotations, saveAnnotations } from './annotation-store.js';
 import { createNotebook, loadNotebookStore, saveNotebookStore } from './notebook-store.js';
 
@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.2.1';
+const PLUGIN_VERSION = '1.3.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -496,10 +496,7 @@ function currentDraft() {
 }
 
 function updateFooterStatus() {
-  const status = root.querySelector('.bottom-bar .status');
-  if (!status) return;
-  status.textContent = state.error || state.status;
-  status.classList.toggle('error', Boolean(state.error));
+  // The reader no longer reserves a bottom status row; transient state stays in controls.
 }
 
 function updateEditorStatus() {
@@ -869,8 +866,7 @@ function renderTree() {
   }
 
   const tree = renderTreeNode(state.rootNode, 0);
-  return `<div class="tree-root-name"><span class="folder-dot" aria-hidden="true">${treeIconSvg(true, true)}</span>${escapeHtml(state.rootNode.name)}</div>
-    <div class="tree-content" role="tree" aria-label="项目文件树">${tree}</div>`;
+  return `<div class="tree-content" role="tree" aria-label="项目文件树">${tree}</div>`;
 }
 
 function renderCodeViewer(content, language) {
@@ -1174,7 +1170,7 @@ function createSelectionToolbar(viewer) {
   if (!viewer || !rect) return;
   const toolbar = document.createElement('div');
   toolbar.className = 'selection-toolbar';
-  toolbar.innerHTML = '<button type="button" data-annotation-action="comment">批注</button><button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">下划线</button>';
+  toolbar.innerHTML = '<button type="button" data-annotation-action="comment">批注</button><button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">下划线</button><button type="button" data-annotation-action="erase">擦除</button>';
   toolbar.addEventListener('mousedown', (event) => event.preventDefault());
   toolbar.addEventListener('click', (event) => {
     const action = event.target.closest('button')?.dataset.annotationAction;
@@ -1190,12 +1186,18 @@ function showAnnotationComposer(viewer) {
   if (!viewer || !rect) return;
   const composer = document.createElement('div');
   composer.className = 'annotation-composer-popover';
-  composer.innerHTML = '<strong>添加批注</strong><textarea data-annotation-composer placeholder="写下你的理解或修改理由……"></textarea><button class="button tiny primary" type="button">保存批注</button>';
+  composer.innerHTML = '<textarea data-annotation-composer aria-label="批注内容" placeholder="输入批注，Enter 保存，Shift + Enter 换行"></textarea>';
   composer.addEventListener('mousedown', (event) => event.preventDefault());
-  composer.querySelector('button').addEventListener('click', saveAnnotationComposer);
+  const input = composer.querySelector('[data-annotation-composer]');
+  input?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    if (input.value.trim()) saveAnnotationComposer();
+    else cancelAnnotationComposer();
+  });
   viewer.append(composer);
   placeSelectionOverlay(viewer, composer, rect);
-  composer.querySelector('textarea')?.focus();
+  input?.focus();
 }
 
 function showAnnotationBubble(mark) {
@@ -1225,6 +1227,10 @@ function beginAnnotation(kind) {
     render();
     return;
   }
+  if (kind === 'erase') {
+    eraseAnnotationsInSelection();
+    return;
+  }
   if (kind === 'highlight' || kind === 'underline') {
     recordAnnotationUndo();
     const annotation = makeAnnotation(kind, '');
@@ -1239,6 +1245,36 @@ function beginAnnotation(kind) {
   }
   state.annotationComposer = { kind: 'comment', selection: { ...state.selection } };
   showAnnotationComposer(activeSelectionViewer);
+}
+
+function eraseAnnotationsInSelection() {
+  const article = activeSelectionViewer?.querySelector('.markdown-body');
+  const selection = state.selection;
+  if (!article || !selection) return;
+  const next = state.annotations.filter((annotation) => {
+    const position = findAnnotationPosition(article, annotation);
+    return !position || position.end <= selection.start || position.start >= selection.end;
+  });
+  if (next.length === state.annotations.length) {
+    state.status = '选区内没有可擦除的批注或标记';
+  } else {
+    recordAnnotationUndo();
+    state.annotations = next;
+    state.current.annotations = next;
+    saveAnnotationsForCurrent();
+    state.status = '已擦除选区内的批注和标记';
+  }
+  state.selection = null;
+  removeSelectionOverlay();
+  render();
+}
+
+function cancelAnnotationComposer() {
+  state.annotationComposer = null;
+  state.selection = null;
+  removeSelectionOverlay();
+  hideAnnotationBubble();
+  render();
 }
 
 function makeAnnotation(kind, note) {
@@ -1262,6 +1298,10 @@ function saveAnnotationComposer() {
   if (!state.annotationComposer) return;
   const input = root.querySelector('[data-annotation-composer]');
   const note = input?.value?.trim() || '';
+  if (!note) {
+    cancelAnnotationComposer();
+    return;
+  }
   recordAnnotationUndo();
   const annotation = makeAnnotation('comment', note);
   state.annotations.push(annotation);
@@ -1297,6 +1337,19 @@ function createNotebookAction() {
   state.activeNotebookId = notebook.id;
   state.notebookText = '';
   saveNotebook();
+  render();
+}
+
+function deleteNotebook(id) {
+  const notebook = state.notebooks.find((item) => item.id === id);
+  if (!notebook) return;
+  if (!window.confirm(`删除笔记本“${notebook.title}”？`)) return;
+  state.notebooks = state.notebooks.filter((item) => item.id !== id);
+  if (!state.notebooks.length) state.notebooks = [createNotebook()];
+  if (state.activeNotebookId === id) state.activeNotebookId = state.notebooks[0].id;
+  syncNotebookText();
+  saveNotebook();
+  state.status = `已删除笔记本“${notebook.title}”`;
   render();
 }
 
@@ -1373,13 +1426,30 @@ function retryCopilot() {
   if (state.copilot.lastRequest && !state.copilot.busy) askCopilot('', state.copilot.lastRequest);
 }
 
+function clearViewerSelection(viewer) {
+  if (viewer && activeSelectionViewer !== viewer) return;
+  state.selection = null;
+  state.annotationComposer = null;
+  removeSelectionOverlay();
+  hideAnnotationBubble();
+}
+
 function captureViewerSelection(viewer) {
   const article = viewer?.querySelector('.markdown-body');
   const selection = window.getSelection?.();
-  if (!article || !selection || selection.isCollapsed || !selection.rangeCount) return;
-  if (!article.contains(selection.anchorNode) || !article.contains(selection.focusNode)) return;
+  if (!article || !selection || selection.isCollapsed || !selection.rangeCount) {
+    clearViewerSelection(viewer);
+    return;
+  }
+  if (!article.contains(selection.anchorNode) || !article.contains(selection.focusNode)) {
+    clearViewerSelection(viewer);
+    return;
+  }
   const anchor = selectionAnchor(article, selection);
-  if (!anchor) return;
+  if (!anchor) {
+    clearViewerSelection(viewer);
+    return;
+  }
   state.selection = anchor;
   activeSelectionViewer = viewer;
   createSelectionToolbar(viewer);
@@ -1455,9 +1525,9 @@ function renderCopilotPanel() {
     <div class="copilot-message-body">${message.role === 'assistant' ? renderAssistantText(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
   </div>`).join('');
   return `<div class="copilot-content">
-    <div class="copilot-scroll">${messages || `<div class="copilot-empty compact"><h3>打开文件后直接提问</h3><p>AI 辅助默认只读取当前正在阅读的文本。</p></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
+    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><div class="copilot-empty-mark">✦</div><h3>从当前文件开始</h3><p>直接提问，AI 只读取正在阅读的文本。</p></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
     ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
-    <div class="copilot-composer"><textarea data-copilot-prompt placeholder="直接输入问题……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="button primary" data-action="copilot-submit" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '生成中…' : '发送'}</button></div>
+    <div class="copilot-composer"><textarea data-copilot-prompt rows="1" placeholder="询问当前文件……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="copilot-send" data-action="copilot-submit" aria-label="发送" title="发送（Enter）" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '…' : '↑'}</button></div>
   </div>`;
 }
 
@@ -1561,7 +1631,6 @@ function render() {
       <div class="panel-resizer" data-resizer="right" role="separator" aria-label="调整阅读助手宽度"></div>
       ${renderCopilot()}
     </div>
-    <footer class="bottom-bar"><span class="status${state.error ? ' error' : ''}" aria-live="polite">${escapeHtml(state.error || state.status)}</span><span>本地优先 · ResourceIO · 编辑自动保存 · 可回撤</span></footer>
   </div>`;
 
   const article = root.querySelector('.viewer-scroll .markdown-body');
@@ -1632,6 +1701,7 @@ function render() {
       if (action === 'add-comment') beginAnnotation('comment');
       if (action === 'add-highlight') beginAnnotation('highlight');
       if (action === 'add-underline') beginAnnotation('underline');
+      if (action === 'erase-annotation') beginAnnotation('erase');
       if (action === 'focus-annotation') focusAnnotation(annotationIdValue);
       if (action === 'new-notebook') createNotebookAction();
       if (action === 'select-notebook') selectNotebook(element.dataset.notebookId);
@@ -1655,6 +1725,12 @@ function render() {
 
   const notebookTitle = root.querySelector('[data-notebook-title]');
   if (notebookTitle) notebookTitle.addEventListener('input', updateNotebookTitle);
+  root.querySelectorAll('[data-action="select-notebook"]').forEach((notebookTab) => {
+    notebookTab.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      deleteNotebook(notebookTab.dataset.notebookId);
+    });
+  });
 
   const copilotPrompt = root.querySelector('[data-copilot-prompt]');
   if (copilotPrompt) {
@@ -1662,7 +1738,7 @@ function render() {
       state.copilot.prompt = copilotPrompt.value;
     });
     copilotPrompt.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
         event.preventDefault();
         state.copilot.prompt = copilotPrompt.value;
         askCopilot(copilotPrompt.value);
@@ -1673,6 +1749,9 @@ function render() {
   const viewer = root.querySelector('.viewer-scroll');
   if (viewer && state.current) {
     viewer.scrollTop = state.current.scrollTop || 0;
+    viewer.addEventListener('mousedown', (event) => {
+      if (!event.target.closest('.selection-toolbar, .annotation-composer-popover')) clearViewerSelection(viewer);
+    });
     viewer.addEventListener('mouseup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
     viewer.addEventListener('keyup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
     viewer.addEventListener('scroll', () => {

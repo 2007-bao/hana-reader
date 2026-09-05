@@ -5,9 +5,9 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.2.1`
+- 当前版本：`v1.3.0`
 - 稳定基线：`main` / `v0.9.0`
-- 当前目标：完成左侧文件树折叠修复后的测试、构建和本地提交
+- 当前目标：完成清爽界面细节、批注交互、Copilot 和 Notebook 更新后的测试、构建和本地提交
 - 工作区无关目录：`knob-motion-lab/`，不要查看、修改、提交或打包
 
 ## 本阶段已经完成

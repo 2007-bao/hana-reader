@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.2.1 reader page with guarded resource access', async () => {
+test('manifest declares the v1.3.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.2.1');
+  assert.equal(manifest.version, '1.3.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -71,7 +71,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.2\.1'/);
+  assert.match(route, /ASSET_REVISION = '1\.3\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -81,7 +81,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.2.1'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.3.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -98,8 +98,6 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /data-action="read-mode"/);
   assert.match(panelSource, /只读/);
   assert.match(panelSource, /编辑/);
-  assert.match(panelSource, /回撤/);
-  assert.match(panelSource, /编辑自动保存/);
   assert.match(panelSource, /reader-floating-toolbar/);
   assert.match(panelSource, /panel-resizer/);
   assert.match(panelSource, /treeIconSvg/);
@@ -132,6 +130,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /annotation-comment/);
   assert.match(panelSource, /showAnnotationBubble/);
   assert.match(panelSource, /data-annotation-action/);
+  assert.match(panelSource, /data-annotation-action="erase"/);
   assert.doesNotMatch(panelSource, /<header class=\"topbar\"/);
   assert.match(css, /grid-template-columns: var\(--left-panel-width\)/);
   assert.match(css, /height: 100vh/);
@@ -143,6 +142,8 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   const annotationEngine = await fs.readFile(path.join(root, 'src/annotation-engine.js'), 'utf8');
   const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
 
+  assert.doesNotMatch(panel, /tree-root-name/);
+  assert.doesNotMatch(panel, /bottom-bar/);
   assert.match(panel, /function handleGlobalKeydown/);
   assert.match(panel, /key === 'z'/);
   assert.match(panel, /annotationUndoAt/);
@@ -151,9 +152,13 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /data-action="show-ai"/);
   assert.match(panel, /data-action="show-notebook"/);
   assert.match(panel, /file-panel-expand/);
-  assert.match(panel, /file-panel-expand/);
   assert.match(panel, /data-action="toggle-left"/);
   assert.match(panel, /data-notebook/);
+  assert.match(panel, /contextmenu/);
+  assert.match(panel, /deleteNotebook/);
+  assert.match(panel, /downloadNotebook/);
+  assert.match(panel, /cancelAnnotationComposer/);
+  assert.match(panel, /!event\.shiftKey/);
   assert.doesNotMatch(panel, /data-annotation-filter/);
   assert.doesNotMatch(panel, /annotation-sidebar/);
   assert.match(annotationEngine, /annotation-comment/);
@@ -163,6 +168,9 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.file-panel-expand/);
   assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);
   assert.match(css, /\.annotation-comment/);
+  assert.match(css, /--reader-scroll-thumb/);
+  assert.match(css, /color: var\(--reader-heading\)/);
+  assert.match(css, /background: #f5f6f7/);
   assert.match(css, /text-decoration: underline wavy #e49a55/);
 });
 

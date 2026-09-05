@@ -103,6 +103,25 @@ button {
   font: inherit;
 }
 
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--reader-accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .reader-app {
   height: 100vh;
   min-height: 680px;
@@ -391,6 +410,246 @@ button {
   flex: 1 1 auto;
   overflow: auto;
   padding: 0 8px 16px;
+}
+
+.search-panel {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 2px 12px;
+}
+
+.search-form {
+  display: grid;
+  gap: 8px;
+}
+
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  padding: 8px 28px 8px 28px;
+  color: var(--reader-text);
+  background: var(--reader-card);
+  outline: none;
+}
+
+.search-input-wrap input:focus {
+  border-color: var(--reader-accent);
+  box-shadow: 0 0 0 3px var(--reader-accent-soft);
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 9px;
+  color: var(--reader-muted);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--reader-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  color: var(--reader-accent);
+  background: var(--reader-accent-soft);
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--reader-muted);
+  font-size: 11px;
+}
+
+.search-summary {
+  min-height: 16px;
+  color: var(--reader-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.search-results {
+  display: grid;
+  gap: 5px;
+}
+
+.search-result {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--reader-text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.search-result:hover,
+.search-result:focus-visible,
+.search-result.active {
+  border-color: var(--reader-divider);
+  background: var(--reader-accent-soft);
+  outline: none;
+}
+
+.search-result-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.search-result-heading strong,
+.search-result-path,
+.search-result-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-heading strong {
+  color: var(--reader-accent);
+  font-size: 11px;
+}
+
+.search-result-heading span,
+.search-result-path {
+  color: var(--reader-muted);
+  font-size: 9px;
+}
+
+.search-result-preview {
+  color: var(--reader-text);
+  font: 10px/1.45 var(--reader-code-font);
+}
+
+.search-result-preview mark {
+  border-radius: 2px;
+  color: var(--reader-text);
+  background: color-mix(in srgb, var(--maple-stream) 30%, transparent);
+}
+
+.search-empty {
+  padding: 28px 8px;
+  color: var(--reader-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.search-limit-note {
+  margin-top: auto;
+  padding: 8px 2px 0;
+  border-top: 1px solid var(--reader-border);
+  color: var(--reader-muted);
+  font-size: 9px;
+}
+
+.recent-files {
+  display: grid;
+  gap: 3px;
+  margin: 16px 2px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--reader-border);
+}
+
+.recent-files-heading {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 7px 4px;
+  color: var(--reader-muted);
+  font-size: 10px;
+}
+
+.recent-files-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recent-clear {
+  width: 17px;
+  height: 17px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--reader-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.recent-clear:hover,
+.recent-clear:focus-visible {
+  color: var(--reader-accent);
+  background: var(--reader-accent-soft);
+  outline: none;
+}
+
+.recent-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 7px;
+  color: var(--reader-text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.recent-file:hover,
+.recent-file:focus-visible {
+  background: var(--reader-soft);
+  outline: none;
+}
+
+.recent-file-icon {
+  color: var(--reader-accent);
+}
+
+.recent-file-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.recent-file-copy strong,
+.recent-file-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-file-copy strong {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.recent-file-copy small {
+  color: var(--reader-muted);
+  font-size: 9px;
 }
 
 .tree-root-name {
@@ -1092,6 +1351,16 @@ body[data-hana-theme="dark"] .tree-nested::before {
   background: var(--reader-accent-soft);
 }
 
+.code-line.search-hit {
+  background: color-mix(in srgb, var(--maple-stream) 18%, transparent);
+  box-shadow: inset 3px 0 var(--reader-accent);
+}
+
+.markdown-body.search-located {
+  outline: 2px solid color-mix(in srgb, var(--reader-accent) 28%, transparent);
+  outline-offset: 8px;
+}
+
 .line-number {
   user-select: none;
   padding-right: 13px;
@@ -1667,6 +1936,26 @@ body {
   font-size: 10px;
 }
 
+.conflict-notice {
+  display: grid;
+  gap: 6px;
+  margin: 10px 14px 0;
+  max-width: none;
+  color: #9c4f4f;
+}
+
+.conflict-notice p {
+  margin: 0;
+  color: var(--reader-muted);
+  line-height: 1.55;
+}
+
+.conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .button.tiny {
   border: 1px solid var(--reader-border);
   border-radius: 6px;
@@ -1993,10 +2282,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   padding: 6px 12px;
   color: var(--reader-muted);
   font-size: 10px;
+}
+
+.annotation-filter {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.annotation-filter select {
+  max-width: 78px;
+  border: 1px solid var(--reader-border);
+  border-radius: 5px;
+  padding: 3px 4px;
+  color: var(--reader-muted);
+  background: var(--reader-card);
+  font: 10px var(--reader-ui-font);
 }
 
 .annotation-composer textarea,

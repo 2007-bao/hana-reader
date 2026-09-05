@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
 
-> 当前版本：`v1.0.0` · 阅读、Copilot、批注与 Notebook 工作台
+> 当前版本：`v1.1.0` · 阅读、搜索、Copilot、批注与 Notebook 工作台
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -24,7 +24,7 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 - Markdown 安全渲染、GFM 表格、任务列表和链接
 - 本地 Milkdown Markdown 编辑器
 - 多类型文本安全写回
-- 版本冲突检测、Diff 预览和撤销
+- 版本冲突检测、远端/本地处理和撤销
 - 安全 HTML 预览
 - 单文件 2 MB 读取上限、编辑内容 512 KB 上限
 
@@ -52,7 +52,7 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 ### Markdown 批注与审阅
 
 - 选中文本后添加批注、高亮或下划线
-- 批注支持回复、编辑、删除、完成/重新打开和最近一次操作撤销
+- 批注支持回复、编辑、删除、完成/重新打开、筛选、批量完成和最近一次操作撤销
 - 批注侧栏支持定位原文，并使用文本锚点在重新打开后恢复
 - 批注存于本机浏览器，不向普通 Markdown 注入私有语法
 
@@ -64,9 +64,19 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 - Markdown 预览、下载导出和带版本校验的安全写回
 - 内容独立于当前文件，使用浏览器本地存储自动保存
 
+### 离线搜索与工作区维护
+
+- 在当前已选择文件夹内执行受限全文搜索，不依赖新的 Hana 宿主 API
+- 支持大小写选项、相对路径、行号/列号、预览片段和结果高亮
+- 搜索结果可直接打开文件，并定位到代码行或 Markdown 近似位置
+- 搜索边界：最多扫描 500 个文件、单文件 1 MB、总读取 8 MB、最多返回 100 个结果
+- 最近打开文件保存在浏览器本地，可在当前工作区快速回到已读文件
+- `Ctrl/Cmd + Shift + F` 打开搜索，`Escape` 关闭面板，`Ctrl/Cmd + S` 触发编辑保存
+- 文件树、工具切换和搜索结果补充了基础无障碍语义与键盘焦点样式
+
 ## 当前剩余候选能力
 
-核心工作台已经完成。后续候选能力包括全文搜索、跨文件问答、Git 状态、多标签、sidecar 协作同步和更完整的审阅合并工作流。
+当前仍可离线推进的方向包括跨文件问答前的检索摘要、多标签阅读历史、批注导入/导出、sidecar 导入导出、Diff 合并工作流、长文档虚拟化和 CSS 清理。Git 状态与跨设备协作同步仍需要额外的宿主能力或明确的文件协议。
 完整清单与明确限制见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
 ## 给下一次 AI / 新对话的交接说明
@@ -115,7 +125,7 @@ npm test
 ```text
 manifest.json       插件声明与权限
 package.json        构建、依赖与测试脚本
-routes/ui.js        Page shell、ResourceIO 读取与安全写回路由
+routes/ui.js        Page shell、ResourceIO 搜索/读取与安全写回路由
 src/                可维护的前端源代码与渲染内核
 assets/             iframe 页面静态资源和构建产物
   panel.js          构建后的阅读工作台界面
@@ -139,7 +149,7 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前稳定基线：`main` / `v0.9.0`；本地完成目标：`feat/complete-reader-workbench` / `v1.0.0`。
+当前稳定基线：`main` / `v0.9.0`；本地完成目标：`feat/offline-search-and-polish` / `v1.1.0`。
 
 上一阶段已完成 PR：
 

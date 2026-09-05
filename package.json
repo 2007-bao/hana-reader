@@ -1,11 +1,12 @@
 {
   "name": "hana-reader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "esbuild src/panel.js --bundle --minify --format=esm --target=es2020 --outfile=assets/panel.js",
-    "test": "npm run build && node --test --test-concurrency=1"
+    "check:version": "node scripts/check-version.mjs",
+    "test": "npm run check:version && npm run build && node --test --test-concurrency=1"
   },
   "dependencies": {
     "@milkdown/kit": "^7.22.1",

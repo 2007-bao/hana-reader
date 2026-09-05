@@ -8,21 +8,24 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_VERSION = '1.1.0';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
+const RECENT_FILES_STORAGE_KEY = 'hana-reader:recent-files:v1';
 const NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v2';
 const LEGACY_NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v1';
 const ANNOTATION_STORAGE_KEY = 'hana-reader:annotations:v1';
 const COPILOT_STORAGE_KEY = 'hana-reader:copilot:v1';
 
 let sequence = 0;
+let searchSequence = 0;
 let activeMarkdownEditor = null;
 let pendingMarkdownEditor = null;
 let editorGeneration = 0;
 let autoSaveTimer = null;
+let sessionSaveTimer = null;
 let suppressEditorRemount = false;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
@@ -161,11 +164,25 @@ const state = {
   leftCollapsed: false,
   rightCollapsed: false,
   rightView: 'copilot',
+  search: {
+    open: false,
+    query: '',
+    caseSensitive: false,
+    results: [],
+    busy: false,
+    error: '',
+    scannedFiles: 0,
+    skippedFiles: 0,
+    activeResultIndex: -1,
+    truncated: false,
+  },
+  recentFiles: [],
   notebookText: '',
   notebooks: [],
   activeNotebookId: null,
   notebookPreview: false,
   annotations: [],
+  annotationFilter: 'all',
   annotationKey: '',
   annotationComposer: null,
   annotationEditorId: null,
@@ -302,6 +319,100 @@ function readSavedSession() {
   } catch {
     return null;
   }
+}
+
+function readRecentFiles() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(RECENT_FILES_STORAGE_KEY) || '[]');
+    if (!Array.isArray(value)) return [];
+    return value.filter((item) => item && typeof item === 'object'
+      && item.rootResource && typeof item.rootKey === 'string'
+      && Array.isArray(item.relativePath) && typeof item.name === 'string')
+      .slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentFiles() {
+  try {
+    window.localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(state.recentFiles.slice(0, 12)));
+  } catch {
+    // Recent history is optional and must never block reading.
+  }
+}
+
+function rememberRecentFile(node) {
+  if (!node?.resource || node.isDirectory || !state.rootNode?.resource) return;
+  const rootKey = annotationResourceKey(state.rootNode.resource);
+  const fileKey = `${rootKey}:${nodePath(node).join('/')}`;
+  const entry = {
+    id: fileKey,
+    rootKey,
+    rootResource: state.rootNode.resource,
+    rootName: state.rootNode.name,
+    name: node.name,
+    relativePath: nodePath(node),
+    language: inferLanguage(node.name),
+    openedAt: Date.now(),
+  };
+  state.recentFiles = [entry, ...state.recentFiles.filter((item) => item.id !== fileKey)].slice(0, 12);
+  saveRecentFiles();
+}
+
+function findLoadedNode(pathSegments) {
+  if (!state.rootNode || !Array.isArray(pathSegments)) return null;
+  let node = state.rootNode;
+  for (const segment of pathSegments) {
+    node = node.items.find((item) => item.name === segment);
+    if (!node) return null;
+  }
+  return node;
+}
+
+async function openRecentFile(id) {
+  const entry = state.recentFiles.find((item) => item.id === id);
+  if (!entry) return;
+  if (!state.rootNode || annotationResourceKey(state.rootNode.resource) !== entry.rootKey) {
+    state.error = '';
+    state.status = `最近文件来自“${entry.rootName || '另一个工作区'}”，请先选择对应文件夹`;
+    render();
+    return;
+  }
+
+  let node = findLoadedNode(entry.relativePath);
+  if (!node) {
+    let parent = state.rootNode;
+    for (const [index, segment] of entry.relativePath.entries()) {
+      if (!parent.loaded) await loadDirectory(parent);
+      const child = parent.items.find((item) => item.name === segment);
+      if (!child) {
+        state.error = '';
+        state.status = `最近文件不存在：${entry.relativePath.join('/')}`;
+        render();
+        return;
+      }
+      if (index === entry.relativePath.length - 1) {
+        node = child;
+        break;
+      }
+      if (!child.isDirectory) break;
+      parent = child;
+    }
+  }
+  if (node?.resource && !node.isDirectory) {
+    await openFile(node);
+  }
+}
+
+state.recentFiles = readRecentFiles();
+
+function scheduleSessionSave() {
+  if (sessionSaveTimer || !state.rootNode?.resource) return;
+  sessionSaveTimer = window.setTimeout(() => {
+    sessionSaveTimer = null;
+    saveSession();
+  }, 180);
 }
 
 function saveSession() {
@@ -469,6 +580,150 @@ async function apiJson(path, body) {
   return payload;
 }
 
+function toggleSearch(force) {
+  state.search.open = typeof force === 'boolean' ? force : !state.search.open;
+  render();
+  if (state.search.open) {
+    window.requestAnimationFrame(() => root.querySelector('[data-search-input]')?.focus());
+  }
+}
+
+function highlightedSearchPreview(value, query, caseSensitive) {
+  const text = String(value || '');
+  const needle = String(query || '');
+  if (!needle) return escapeHtml(text);
+  const source = caseSensitive ? text : text.toLocaleLowerCase();
+  const target = caseSensitive ? needle : needle.toLocaleLowerCase();
+  let cursor = 0;
+  let html = '';
+  while (cursor < text.length) {
+    const index = source.indexOf(target, cursor);
+    if (index < 0) {
+      html += escapeHtml(text.slice(cursor));
+      break;
+    }
+    html += escapeHtml(text.slice(cursor, index));
+    html += `<mark>${escapeHtml(text.slice(index, index + needle.length))}</mark>`;
+    cursor = index + needle.length;
+  }
+  return html;
+}
+
+async function submitSearch(queryOverride = null) {
+  if (!state.rootNode?.resource || state.search.busy) return;
+  const query = String(queryOverride ?? state.search.query ?? '').trim().slice(0, 200);
+  state.search.query = query;
+  if (!query) {
+    state.search.results = [];
+    state.search.error = '';
+    state.search.truncated = false;
+    state.status = '请输入搜索内容';
+    render();
+    return;
+  }
+  const requestId = ++searchSequence;
+  const rootKey = annotationResourceKey(state.rootNode.resource);
+  state.search.busy = true;
+  state.search.error = '';
+  state.search.results = [];
+  state.search.truncated = false;
+  state.search.scannedFiles = 0;
+  state.search.skippedFiles = 0;
+  state.search.activeResultIndex = -1;
+  state.status = `正在搜索“${query}”…`;
+  render();
+  try {
+    const result = await apiJson('resources/search', {
+      resource: state.rootNode.resource,
+      query,
+      caseSensitive: state.search.caseSensitive,
+    });
+    if (requestId !== searchSequence || annotationResourceKey(state.rootNode?.resource) !== rootKey) return;
+    state.search.results = Array.isArray(result.results) ? result.results : [];
+    state.search.scannedFiles = Number(result.scannedFiles) || 0;
+    state.search.skippedFiles = Number(result.skippedFiles) || 0;
+    state.search.truncated = Boolean(result.truncated);
+    state.status = `搜索完成 · ${state.search.results.length} 个结果${state.search.truncated ? ' · 已达到安全上限' : ''}`;
+  } catch (error) {
+    if (requestId !== searchSequence) return;
+    state.search.error = error instanceof Error ? error.message : String(error);
+    state.status = '搜索失败';
+  } finally {
+    if (requestId === searchSequence) {
+      state.search.busy = false;
+      render();
+    }
+  }
+}
+
+function clearSearch() {
+  ++searchSequence;
+  state.search.query = '';
+  state.search.results = [];
+  state.search.error = '';
+  state.search.truncated = false;
+  state.search.scannedFiles = 0;
+  state.search.skippedFiles = 0;
+  state.search.activeResultIndex = -1;
+  state.status = '请输入搜索内容';
+  render();
+  window.requestAnimationFrame(() => root.querySelector('[data-search-input]')?.focus());
+}
+
+function moveSearchResult(delta) {
+  if (!state.search.results.length) return;
+  const current = state.search.activeResultIndex < 0 ? (delta > 0 ? -1 : 0) : state.search.activeResultIndex;
+  state.search.activeResultIndex = (current + delta + state.search.results.length) % state.search.results.length;
+  render();
+  window.requestAnimationFrame(() => root.querySelector(`[data-search-index="${state.search.activeResultIndex}"]`)?.focus());
+}
+
+function openSearchResult(index) {
+  const result = state.search.results[Number(index)];
+  if (!result?.resource) return;
+  const node = findLoadedNode(result.relativePath)?.isDirectory
+    ? null
+    : findLoadedNode(result.relativePath) || makeNode({
+      resource: result.resource,
+      name: result.name,
+      isDirectory: false,
+      relativePath: Array.isArray(result.relativePath) ? result.relativePath : [result.name],
+    });
+  if (!node) return;
+  requestTransition(`打开搜索结果 ${result.name}`, () => openFile(node, {
+    searchMatch: { line: result.line, column: result.column, query: state.search.query, pending: true },
+  }));
+}
+
+function renderSearchPanel() {
+  const search = state.search;
+  const resultList = search.results.map((result, index) => {
+    const path = Array.isArray(result.relativePath) ? result.relativePath.join('/') : result.name;
+    return `<button class="search-result${search.activeResultIndex === index ? ' active' : ''}" data-action="open-search-result" data-search-index="${index}" role="option" aria-selected="${search.activeResultIndex === index}" aria-label="${escapeHtml(`${path}，第 ${result.line} 行`)}">
+      <span class="search-result-heading"><strong>${escapeHtml(result.name)}</strong><span>第 ${result.line} 行 · 第 ${result.column} 列</span></span>
+      <span class="search-result-path">${escapeHtml(path)}</span>
+      <span class="search-result-preview">${highlightedSearchPreview(result.preview, search.query, search.caseSensitive)}</span>
+    </button>`;
+  }).join('');
+  const summary = search.busy
+    ? '正在扫描当前文件夹…'
+    : search.error
+      ? search.error
+      : search.query
+        ? `${search.results.length} 个结果 · 已扫描 ${search.scannedFiles} 个文件${search.skippedFiles ? ` · 跳过 ${search.skippedFiles} 个` : ''}${search.truncated ? ' · 结果可能不完整' : ''}`
+        : '只搜索当前已选择的文件夹';
+  return `<div class="search-panel">
+    <form class="search-form" data-search-form>
+      <label class="search-input-wrap"><span class="sr-only">搜索当前文件夹</span><span class="search-input-icon" aria-hidden="true">⌕</span><input data-search-input value="${escapeHtml(search.query)}" placeholder="搜索当前文件夹…" autocomplete="off" ${search.busy ? 'disabled' : ''}><button class="search-clear" type="button" data-action="clear-search" title="清空搜索" aria-label="清空搜索">×</button></label>
+      <label class="search-option"><input type="checkbox" data-search-case ${search.caseSensitive ? 'checked' : ''}>区分大小写</label>
+      <button class="button tiny primary" type="submit" ${search.busy || !state.rootNode ? 'disabled' : ''}>${search.busy ? '搜索中…' : '搜索'}</button>
+    </form>
+    <div class="search-summary" aria-live="polite">${escapeHtml(summary)}</div>
+    <div class="search-results" role="listbox" aria-label="搜索结果">${resultList || `<div class="search-empty">${search.query ? '没有找到匹配内容' : '输入关键词后搜索文件内容'}</div>`}</div>
+    <div class="search-limit-note">本地受限扫描 · 最多 500 个文件 / 8 MB</div>
+  </div>`;
+}
+
 async function destroyMarkdownEditor() {
   editorGeneration += 1;
   const active = activeMarkdownEditor;
@@ -500,7 +755,9 @@ function updateFooterStatus() {
 function updateEditorStatus() {
   const status = root.querySelector('#editor-status');
   if (!status || !state.current) return;
-  if (state.current.saveFailed) {
+  if (state.current.conflict) {
+    status.textContent = '检测到外部修改 · 选择载入或覆盖';
+  } else if (state.current.saveFailed) {
     status.textContent = '自动保存失败 · 可重试或放弃草稿';
   } else if (state.current.conflict) {
     status.textContent = '检测到外部修改 · 尚未写回';
@@ -510,7 +767,7 @@ function updateEditorStatus() {
     status.textContent = '编辑中 · 未修改';
   }
   root.querySelectorAll('[data-action="retry-save"], [data-action="discard-draft"]').forEach((button) => {
-    button.hidden = !state.current.saveFailed;
+    button.hidden = !state.current.saveFailed || (state.current.conflict && button.dataset.action === 'retry-save');
   });
 }
 
@@ -664,12 +921,14 @@ async function openFile(node, options = {}) {
       baseSha256: await sha256Text(result.content || ''),
       htmlPreview: false,
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
+      searchMatch: options.searchMatch || null,
       annotationKey,
       annotations: language === 'markdown' ? loadAnnotations(window.localStorage, ANNOTATION_STORAGE_KEY, annotationKey) : [],
       saveFailed: false,
     };
     state.annotationKey = annotationKey;
     state.annotations = state.current.annotations;
+    rememberRecentFile(node);
     state.selection = null;
     state.annotationComposer = null;
     state.annotationEditorId = null;
@@ -807,7 +1066,7 @@ function renderTreeNode(node, depth, index) {
       : '<div class="tree-empty">空文件夹</div>'}</div>`
     : '';
 
-  return `<button class="tree-row ${directory ? 'directory' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" style="--depth:${depth}" title="${escapeHtml(node.name)}">
+  return `<button class="tree-row ${directory ? 'directory' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" style="--depth:${depth}" title="${escapeHtml(node.name)}" role="treeitem" aria-expanded="${directory ? String(Boolean(node.expanded)) : 'false'}"${selected ? ' aria-current="page"' : ''}>
     <span class="tree-chevron">${leading}</span>
     <span class="tree-icon ${iconType}" aria-hidden="true">${treeIconSvg(directory, node.expanded)}</span>
     <span class="tree-name">${escapeHtml(node.name)}</span>
@@ -831,6 +1090,21 @@ function treeIconSvg(directory, expanded) {
   return `<svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h8l4 4v13H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5Z"/><path d="M14 3.5v4h4"/></svg>`;
 }
 
+function clearRecentFiles() {
+  state.recentFiles = [];
+  saveRecentFiles();
+  state.status = '已清除最近打开记录';
+  render();
+}
+
+function renderRecentFiles() {
+  if (!state.recentFiles.length) return '';
+  const items = state.recentFiles.slice(0, 6).map((item) => `<button class="recent-file" data-action="open-recent-file" data-recent-id="${escapeHtml(item.id)}" title="${escapeHtml(item.relativePath.join('/'))}">
+    <span class="recent-file-icon" aria-hidden="true">↳</span><span class="recent-file-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.relativePath.join('/'))}</small></span>
+  </button>`).join('');
+  return `<section class="recent-files" aria-labelledby="recent-files-title"><div class="recent-files-heading"><span id="recent-files-title">最近打开</span><span class="recent-files-actions"><span>${state.recentFiles.length}</span><button class="recent-clear" data-action="clear-recent" title="清除最近打开记录" aria-label="清除最近打开记录">×</button></span></div>${items}</section>`;
+}
+
 function renderTree() {
   if (!state.rootNode) {
     return `<div class="tree-placeholder">
@@ -843,12 +1117,15 @@ function renderTree() {
   const index = new Map();
   const tree = renderTreeNode(state.rootNode, 0, index);
   return `<div class="tree-root-name"><span class="folder-dot" aria-hidden="true">${treeIconSvg(true, true)}</span>${escapeHtml(state.rootNode.name)}</div>
-    <div class="tree-content">${tree}</div>`;
+    <div class="tree-content" role="tree" aria-label="项目文件树">${tree}</div>`;
 }
 
-function renderCodeViewer(content, language) {
-  return `<div class="code-viewer">${String(content || '').replace(/\r\n?/g, '\n').split('\n').map((line, index) => `
-    <div class="code-line"><span class="line-number">${index + 1}</span><code>${highlightCode(line, language)}</code></div>`).join('')}</div>`;
+function renderCodeViewer(content, language, searchMatch = null) {
+  return `<div class="code-viewer">${String(content || '').replace(/\r\n?/g, '\n').split('\n').map((line, index) => {
+    const lineNumber = index + 1;
+    const hit = searchMatch?.line === lineNumber;
+    return `<div class="code-line${hit ? ' search-hit' : ''}" data-line="${lineNumber}"><span class="line-number">${lineNumber}</span><code>${highlightCode(line, language)}</code></div>`;
+  }).join('')}</div>`;
 }
 
 async function startEditing() {
@@ -939,17 +1216,9 @@ async function saveCurrent({ preserveEditor = false } = {}) {
         baseSha256: current.baseSha256,
       });
     } catch (error) {
-      if (error.status !== 409 || !error.payload?.conflict || !error.payload.version) throw error;
-      // Overwrite semantics: use the latest remote baseline and retry once.
-      current.version = error.payload.version;
-      current.baseSha256 = error.payload.sha256 || await sha256Text(error.payload.content || '');
-      result = await apiJson('resources/write', {
-        resource: current.node.resource,
-        content: draft,
-        expectedVersion: current.version,
-        baseSha256: current.baseSha256,
-      });
-      state.status = '已覆盖外部修改并自动保存';
+      // A remote change is never overwritten implicitly. The outer handler stores the
+      // latest baseline and exposes explicit reload/overwrite actions in the editor.
+      throw error;
     }
     current.undo = { content: current.content, version: result.version };
     current.content = draft;
@@ -963,8 +1232,18 @@ async function saveCurrent({ preserveEditor = false } = {}) {
     state.status = `${languageLabel(current.language)} · 已自动保存`;
   } catch (error) {
     current.saveFailed = true;
-    state.error = error instanceof Error ? error.message : String(error);
-    state.status = '自动保存失败，请重试';
+    if (error.status === 409 && error.payload?.conflict && error.payload.version) {
+      current.conflict = {
+        version: error.payload.version,
+        sha256: error.payload.sha256 || '',
+        content: typeof error.payload.content === 'string' ? error.payload.content : null,
+      };
+      state.error = '远端文件已发生变化，草稿未覆盖远端内容。';
+      state.status = '检测到外部修改 · 请载入远端或确认覆盖';
+    } else {
+      state.error = error instanceof Error ? error.message : String(error);
+      state.status = '自动保存失败，请重试';
+    }
   } finally {
     state.busy = false;
     updateEditorStatus();
@@ -988,6 +1267,45 @@ function retrySaveCurrent() {
   updateEditorStatus();
   updateFooterStatus();
   saveCurrent({ preserveEditor: true });
+}
+
+function overwriteConflict() {
+  const current = state.current;
+  const conflict = current?.conflict;
+  if (!current?.draftDirty || !conflict?.version || !conflict.sha256 || state.busy) return;
+  current.version = conflict.version;
+  current.baseSha256 = conflict.sha256;
+  current.conflict = null;
+  current.saveFailed = false;
+  state.error = '';
+  state.status = '正在确认覆盖远端修改…';
+  updateEditorStatus();
+  updateFooterStatus();
+  void saveCurrent({ preserveEditor: true });
+}
+
+async function reloadConflict() {
+  const current = state.current;
+  const conflict = current?.conflict;
+  if (!current || !conflict || state.busy) return;
+  if (typeof conflict.content !== 'string') {
+    state.error = '远端版本无法作为文本载入，已保留本地草稿。';
+    render();
+    return;
+  }
+  await destroyMarkdownEditor();
+  state.editing = false;
+  current.content = conflict.content;
+  current.version = conflict.version;
+  current.baseSha256 = conflict.sha256 || await sha256Text(conflict.content);
+  current.undo = null;
+  current.conflict = null;
+  current.saveFailed = false;
+  state.error = '';
+  state.status = '已载入远端版本，本地草稿已放弃';
+  delete current.draftContent;
+  delete current.draftDirty;
+  render();
 }
 
 async function discardDraft() {
@@ -1084,6 +1402,31 @@ function undoAnnotationChange() {
 
 function annotationById(id) {
   return state.annotations.find((annotation) => annotation.id === id) || null;
+}
+
+function filteredAnnotations() {
+  const filter = state.annotationFilter;
+  return state.annotations.filter((annotation) => {
+    if (filter === 'open') return !annotation.resolved;
+    if (filter === 'resolved') return annotation.resolved;
+    if (['comment', 'highlight', 'underline'].includes(filter)) return annotation.kind === filter;
+    return true;
+  });
+}
+
+function resolveVisibleAnnotations() {
+  const visible = filteredAnnotations();
+  const pending = visible.filter((annotation) => !annotation.resolved);
+  if (!pending.length) return;
+  recordAnnotationUndo();
+  const now = Date.now();
+  pending.forEach((annotation) => {
+    annotation.resolved = true;
+    annotation.updatedAt = now;
+  });
+  saveAnnotationsForCurrent();
+  state.status = `已完成 ${pending.length} 条批注`;
+  render();
 }
 
 function annotationId() {
@@ -1498,17 +1841,23 @@ function renderReaderPane() {
     const editorMarkup = current.language === 'markdown'
       ? '<div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div>'
       : `<textarea id="source-editor" class="source-editor" spellcheck="false" aria-label="${language} 源码编辑器"></textarea>`;
-    return `<div class="reader-modebar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.saveFailed ? '<button class="button ghost" data-action="retry-save">重试保存</button><button class="button danger" data-action="discard-draft">放弃草稿</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div></div>
+    const conflictNotice = current.conflict
+      ? `<div class="conflict-notice" role="alert"><strong>远端文件已变化</strong><p>本地草稿仍保留，未自动覆盖远端内容。你可以载入远端版本，或明确确认用本地草稿覆盖。</p><div class="conflict-actions"><button class="button ghost" data-action="reload-conflict" ${typeof current.conflict.content === 'string' ? '' : 'disabled'}>载入远端版本</button><button class="button danger" data-action="overwrite-conflict">确认覆盖远端</button><button class="button tiny" data-action="discard-draft">放弃草稿</button></div></div>`
+      : '';
+    return `<div class="reader-modebar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.saveFailed ? '<button class="button ghost" data-action="retry-save">重试保存</button><button class="button danger" data-action="discard-draft">放弃草稿</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div></div>${conflictNotice}
     <div class="editor-scroll">${editorMarkup}</div>`;
   }
 
   const body = current.binary
     ? `<div class="binary-placeholder"><div class="placeholder-icon">◇</div><h3>暂不预览二进制文件</h3><p>当前阶段只面向文本与代码阅读。</p></div>`
     : current.language === 'markdown'
-      ? `<article class="markdown-body">${renderMarkdown(current.content)}</article>`
+      ? `<article class="markdown-body${current.searchMatch ? ' search-located' : ''}" data-search-line="${current.searchMatch?.line || ''}">${renderMarkdown(current.content)}</article>`
       : current.language === 'html' && current.htmlPreview && byteLength(current.content) <= MAX_EDIT_BYTES
         ? `<div class="html-preview-wrap"><iframe class="html-preview" sandbox title="安全 HTML 预览" srcdoc="${escapeHtml(sanitizeHtmlPreview(current.content))}"></iframe></div>`
-        : renderCodeViewer(current.content, current.language);
+        : renderCodeViewer(current.content, current.language, current.searchMatch);
+  const searchStatus = current.searchMatch
+    ? `<span class="editor-status search-location" aria-live="polite">搜索定位 · 第 ${current.searchMatch.line} 行${current.searchMatch.column ? ` · 第 ${current.searchMatch.column} 列` : ''}</span>`
+    : '';
   const editorAction = current.language === 'markdown' && !current.editable
     ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
     : '';
@@ -1518,7 +1867,7 @@ function renderReaderPane() {
     ? `<div class="selection-toolbar"><span class="selection-toolbar-label">已选 ${escapeHtml(selection.quote.slice(0, 46))}${selection.quote.length > 46 ? '…' : ''}</span><button class="button tiny" data-action="add-comment">批注</button><button class="button tiny" data-action="add-highlight">高亮</button><button class="button tiny" data-action="add-underline">下划线</button><button class="button tiny" data-action="selection-to-notebook">加入笔记</button><button class="button tiny ghost" data-action="clear-selection">取消</button></div>`
     : '';
 
-  return `<div class="reader-modebar"><div class="reader-mode-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div></div>
+  return `<div class="reader-modebar"><div class="reader-mode-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}${searchStatus}</div></div>
   ${selectionTools}<div class="viewer-scroll">${body}</div>`;
 }
 
@@ -1533,7 +1882,7 @@ function renderCopilot() {
   };
   const [orb, title, subtitle] = titles[state.rightView] || titles.copilot;
   return `<aside class="copilot-panel">
-    <div class="copilot-heading"><span class="copilot-orb">${orb}</span><div><h2>${title}</h2><p>${subtitle}</p></div><div class="copilot-switcher"><button class="panel-view-button ${state.rightView === 'copilot' ? 'active' : ''}" data-action="show-copilot">Copilot</button><button class="panel-view-button ${state.rightView === 'annotations' ? 'active' : ''}" data-action="show-annotations">批注</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook">笔记本</button></div><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
+    <div class="copilot-heading"><span class="copilot-orb" aria-hidden="true">${orb}</span><div><h2>${title}</h2><p>${subtitle}</p></div><div class="copilot-switcher" role="tablist" aria-label="阅读工具"><button class="panel-view-button ${state.rightView === 'copilot' ? 'active' : ''}" data-action="show-copilot" role="tab" aria-selected="${state.rightView === 'copilot'}">Copilot</button><button class="panel-view-button ${state.rightView === 'annotations' ? 'active' : ''}" data-action="show-annotations" role="tab" aria-selected="${state.rightView === 'annotations'}">批注</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手" aria-label="折叠阅读助手">›</button></div>
     ${state.rightView === 'notebook' ? renderNotebookPanel() : state.rightView === 'annotations' ? renderAnnotationsPanel() : renderCopilotPanel()}
   </aside>`;
 }
@@ -1563,7 +1912,8 @@ function renderAnnotationsPanel() {
   const composer = state.annotationComposer
     ? `<div class="annotation-composer"><div class="annotation-card-title">给“${escapeHtml(state.annotationComposer.selection.quote.slice(0, 46))}${state.annotationComposer.selection.quote.length > 46 ? '…' : ''}”添加批注</div><textarea data-annotation-composer placeholder="写下你的理解、疑问或修改理由……"></textarea><div class="annotation-actions"><button class="button ghost" data-action="cancel-annotation">取消</button><button class="button primary" data-action="save-annotation">保存批注</button></div></div>`
     : '';
-  const list = state.annotations.slice().sort((a, b) => b.createdAt - a.createdAt).map((annotation) => {
+  const visibleAnnotations = filteredAnnotations();
+  const list = visibleAnnotations.slice().sort((a, b) => b.createdAt - a.createdAt).map((annotation) => {
     const editing = state.annotationEditorId === annotation.id;
     const replying = state.annotationReplyId === annotation.id;
     const kindLabel = annotation.kind === 'highlight' ? '高亮' : annotation.kind === 'underline' ? '下划线' : '批注';
@@ -1577,7 +1927,11 @@ function renderAnnotationsPanel() {
       <div class="annotation-actions"><button class="button tiny" data-action="focus-annotation" data-annotation-id="${escapeHtml(annotation.id)}">定位原文</button><button class="button tiny" data-action="toggle-annotation-resolved" data-annotation-id="${escapeHtml(annotation.id)}">${annotation.resolved ? '重新打开' : '完成'}</button><button class="button tiny" data-action="annotation-to-notebook" data-annotation-id="${escapeHtml(annotation.id)}">加入笔记</button>${editing ? `<button class="button tiny" data-action="save-annotation-edit" data-annotation-id="${escapeHtml(annotation.id)}">保存</button>` : `<button class="button tiny" data-action="edit-annotation" data-annotation-id="${escapeHtml(annotation.id)}">编辑</button>`}${replying ? `<button class="button tiny" data-action="add-annotation-reply" data-annotation-id="${escapeHtml(annotation.id)}">回复</button>` : `<button class="button tiny" data-action="reply-annotation" data-annotation-id="${escapeHtml(annotation.id)}">回复</button>`}<button class="button tiny danger" data-action="delete-annotation" data-annotation-id="${escapeHtml(annotation.id)}">删除</button></div>
     </article>`;
   }).join('');
-  return `<div class="annotations-content"><div class="annotation-panel-toolbar"><span>${state.annotations.length} 条标记</span><button class="button tiny" data-action="undo-annotation" ${state.annotationUndo ? '' : 'disabled'}>撤销上一步</button></div>${composer}${list || `<div class="copilot-empty compact"><div class="copilot-spark">❖</div><h3>还没有批注</h3><p>在 Markdown 正文中选中一段文字，即可添加批注、高亮或下划线。</p></div>`}<div class="copilot-note"><span>⌁</span>批注保存在本机浏览器中，原始 Markdown 不会被偷偷改写。</div></div>`;
+  const empty = state.annotations.length
+    ? `<div class="copilot-empty compact"><div class="copilot-spark">⌁</div><h3>当前筛选没有结果</h3><p>切换筛选条件，或在正文中继续添加批注。</p></div>`
+    : `<div class="copilot-empty compact"><div class="copilot-spark">❖</div><h3>还没有批注</h3><p>在 Markdown 正文中选中一段文字，即可添加批注、高亮或下划线。</p></div>`;
+  const hasPending = visibleAnnotations.some((annotation) => !annotation.resolved);
+  return `<div class="annotations-content"><div class="annotation-panel-toolbar"><span>${visibleAnnotations.length}/${state.annotations.length} 条标记</span><label class="annotation-filter"><span class="sr-only">批注筛选</span><select data-annotation-filter aria-label="批注筛选"><option value="all" ${state.annotationFilter === 'all' ? 'selected' : ''}>全部</option><option value="open" ${state.annotationFilter === 'open' ? 'selected' : ''}>进行中</option><option value="resolved" ${state.annotationFilter === 'resolved' ? 'selected' : ''}>已完成</option><option value="comment" ${state.annotationFilter === 'comment' ? 'selected' : ''}>批注</option><option value="highlight" ${state.annotationFilter === 'highlight' ? 'selected' : ''}>高亮</option><option value="underline" ${state.annotationFilter === 'underline' ? 'selected' : ''}>下划线</option></select></label><button class="button tiny" data-action="resolve-visible-annotations" ${hasPending ? '' : 'disabled'}>完成当前</button><button class="button tiny" data-action="undo-annotation" ${state.annotationUndo ? '' : 'disabled'}>撤销上一步</button></div>${composer}${list || empty}<div class="copilot-note"><span>⌁</span>批注保存在本机浏览器中，原始 Markdown 不会被偷偷改写。</div></div>`;
 }
 
 function renderNotebookPanel() {
@@ -1587,6 +1941,37 @@ function renderNotebookPanel() {
 }
 
 let resizeCleanup = null;
+
+function handleGlobalKeydown(event) {
+  const key = String(event.key || '').toLowerCase();
+  const modifier = event.ctrlKey || event.metaKey;
+  if (modifier && event.shiftKey && key === 'f') {
+    event.preventDefault();
+    toggleSearch(true);
+    return;
+  }
+  if (event.key === 'Escape') {
+    if (state.search.open) {
+      toggleSearch(false);
+      return;
+    }
+    if (state.copilot.suggestion) {
+      state.copilot.suggestion = null;
+      render();
+      return;
+    }
+    if (state.selection || state.annotationComposer) {
+      state.selection = null;
+      state.annotationComposer = null;
+      render();
+    }
+    return;
+  }
+  if (modifier && !event.shiftKey && key === 's' && state.editing && state.current?.draftDirty) {
+    event.preventDefault();
+    void flushAutoSave();
+  }
+}
 
 function beginResize(side, event) {
   event.preventDefault();
@@ -1635,8 +2020,8 @@ function render() {
   root.innerHTML = `<div class="reader-app">
     <div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">
       <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
-        <div class="panel-heading"><div><span class="eyebrow">WORKSPACE</span><h2>项目文件</h2></div><div class="panel-heading-actions"><span class="panel-count">${state.rootNode ? state.rootNode.items.length : '—'}</span><button class="panel-tool" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="刷新目录">↻</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹">＋</button><button class="panel-collapse" data-action="toggle-left" title="折叠文件树">‹</button></div></div>
-        <div class="tree-scroll">${tree}</div>
+        <div class="panel-heading"><div><span class="eyebrow">WORKSPACE</span><h2>项目文件</h2></div><div class="panel-heading-actions"><span class="panel-count">${state.rootNode ? state.rootNode.items.length : '—'}</span><button class="panel-tool" data-action="toggle-search" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="全文搜索" aria-label="全文搜索" aria-expanded="${state.search.open}">${state.search.open ? '×' : '⌕'}</button><button class="panel-tool" data-action="refresh" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="刷新目录" aria-label="刷新目录">↻</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button><button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">‹</button></div></div>
+        <div class="tree-scroll">${state.search.open ? renderSearchPanel() : `${tree}${renderRecentFiles()}`}</div>
         <div class="file-panel-footer"><span class="legend-dot"></span> ResourceIO</div>
       </aside>
       <div class="panel-resizer" data-resizer="left" role="separator" aria-label="调整文件树宽度"></div>
@@ -1668,6 +2053,11 @@ function render() {
       const action = element.dataset.action;
       const node = nodeIndex.get(element.dataset.nodeId);
       const annotationIdValue = element.dataset.annotationId;
+      if (action === 'toggle-search') toggleSearch();
+      if (action === 'clear-search') clearSearch();
+      if (action === 'open-search-result') openSearchResult(element.dataset.searchIndex);
+      if (action === 'open-recent-file') requestTransition('打开最近文件', () => openRecentFile(element.dataset.recentId));
+      if (action === 'clear-recent') clearRecentFiles();
       if (action === 'pick') requestTransition('重新选择文件夹', chooseFolder);
       if (action === 'refresh') requestTransition('刷新目录', refreshRoot);
       if (action === 'toggle') requestTransition(`切换到目录 ${node?.name || ''}`, () => toggleDirectory(node));
@@ -1709,6 +2099,8 @@ function render() {
       }
       if (action === 'undo-write') undoLastWrite();
       if (action === 'retry-save') retrySaveCurrent();
+      if (action === 'reload-conflict') reloadConflict();
+      if (action === 'overwrite-conflict') overwriteConflict();
       if (action === 'discard-draft') discardDraft();
       if (action === 'add-comment') beginAnnotation('comment');
       if (action === 'add-highlight') beginAnnotation('highlight');
@@ -1738,6 +2130,7 @@ function render() {
       if (action === 'toggle-annotation-resolved') toggleAnnotationResolved(annotationIdValue);
       if (action === 'delete-annotation') deleteAnnotation(annotationIdValue);
       if (action === 'undo-annotation') undoAnnotationChange();
+      if (action === 'resolve-visible-annotations') resolveVisibleAnnotations();
       if (action === 'annotation-to-notebook') annotationToNotebook(annotationIdValue);
       if (action === 'new-notebook') createNotebookAction();
       if (action === 'select-notebook') selectNotebook(element.dataset.notebookId);
@@ -1764,6 +2157,38 @@ function render() {
       if (action === 'confirm-copilot-apply') confirmCopilotApply();
       if (action === 'copilot-to-notebook') copilotToNotebook(element.dataset.messageId);
     });
+  });
+
+  const searchForm = root.querySelector('[data-search-form]');
+  if (searchForm) {
+    searchForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitSearch(root.querySelector('[data-search-input]')?.value || '');
+    });
+    const searchInput = root.querySelector('[data-search-input]');
+    if (searchInput) searchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveSearchResult(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveSearchResult(-1);
+      } else if (event.key === 'Enter' && state.search.activeResultIndex >= 0 && state.search.results.length) {
+        event.preventDefault();
+        openSearchResult(state.search.activeResultIndex);
+      }
+    });
+    const searchCase = root.querySelector('[data-search-case]');
+    if (searchCase) searchCase.addEventListener('change', () => {
+      state.search.caseSensitive = searchCase.checked;
+      if (state.search.query) submitSearch(state.search.query);
+    });
+  }
+
+  const annotationFilter = root.querySelector('[data-annotation-filter]');
+  if (annotationFilter) annotationFilter.addEventListener('change', () => {
+    state.annotationFilter = annotationFilter.value;
+    render();
   });
 
   const notebookEditor = root.querySelector('[data-notebook]');
@@ -1812,12 +2237,20 @@ function render() {
     viewer.addEventListener('scroll', () => {
       if (!state.current) return;
       state.current.scrollTop = viewer.scrollTop;
-      saveSession();
+      scheduleSessionSave();
     }, { passive: true });
   }
 
   requestAnimationFrame(async () => {
     hana.ui.resize({ height: Math.max(680, root.scrollHeight) });
+    const searchMatch = state.current?.searchMatch;
+    if (searchMatch?.pending && !state.editing) {
+      const target = root.querySelector(`.code-line[data-line="${Number(searchMatch.line) || 0}"]`);
+      const viewer = root.querySelector('.viewer-scroll');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (viewer && state.current.language === 'markdown') viewer.scrollTop = Math.max(0, (Number(searchMatch.line) - 1) * 30);
+      searchMatch.pending = false;
+    }
     if (!remountSession || !state.editing || state.current !== remountSession || state.busy) return;
     try {
       if (editorCleanup) await editorCleanup;
@@ -1830,6 +2263,12 @@ function render() {
   });
 }
 
+window.addEventListener('keydown', handleGlobalKeydown);
+window.addEventListener('beforeunload', () => {
+  window.clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = null;
+  saveSession();
+});
 render();
 hana.ready({ surface: 'page', pluginId: 'hana-reader', version: PLUGIN_VERSION });
 restoreSession();

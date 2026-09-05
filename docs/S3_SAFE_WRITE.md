@@ -9,8 +9,8 @@ S3 对 Markdown、Python、JSON、HTML、CSS、JavaScript、TypeScript、YAML、
 1. `/resources/read` 返回 `resource` 与 `version`，前端将其作为编辑基线。
 2. `/resources/write` 必须同时接收 `resource`、完整 `content` 与 `expectedVersion`。
 3. 服务端调用 `ctx.resources.writeExpectedVersion`，版本不一致时返回 `409`，并附带最新远端文本与版本。
-4. 客户端采用“只读 / 编辑”双状态；编辑中的修改经过短暂防抖后自动写回，不再要求单独确认保存或查看 Diff。
-5. 若远端已变化，客户端刷新远端版本后自动重试一次，以用户确认的覆盖语义完成写回。
+4. 客户端采用“只读 / 编辑”双状态；编辑中的修改经过短暂防抖后自动写回。
+5. 若远端已变化，客户端不会自动覆盖；保留本地草稿并展示远端版本，用户可以载入远端版本或明确确认覆盖。
 
 ## 撤销
 

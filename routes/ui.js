@@ -3,10 +3,31 @@ import { createHash } from 'node:crypto';
 const MAX_READ_BYTES = 2 * 1024 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const MAX_COPILOT_HISTORY_ITEMS = 12;
-const ASSET_REVISION = '1.0.0';
+const MAX_SEARCH_FILES = 500;
+const MAX_SEARCH_DIRECTORIES = 1000;
+const MAX_SEARCH_RESULTS = 100;
+const MAX_SEARCH_FILE_BYTES = 1024 * 1024;
+const MAX_SEARCH_TOTAL_BYTES = 8 * 1024 * 1024;
+const ASSET_REVISION = '1.1.0';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));
+
+  app.post('/resources/search', async (c) => {
+    try {
+      const input = await c.req.json();
+      const resource = validateResource(input?.resource);
+      const query = clipText(input?.query, 200).text.trim();
+      if (!query) return c.json({ error: '请输入搜索内容。' }, 400);
+      const pluginCtx = c.get('pluginCtx') || ctx;
+      const result = await searchResources(pluginCtx.resources, resource, query, {
+        caseSensitive: Boolean(input?.caseSensitive),
+      });
+      return c.json(result);
+    } catch (error) {
+      return c.json({ error: safeErrorMessage(error) }, error?.status === 403 ? 403 : 400);
+    }
+  });
 
   app.post('/copilot/ask', async (c) => {
     try {
@@ -139,6 +160,9 @@ export default function registerPluginUiRoutes(app, ctx) {
       }
       const result = await pluginCtx.resources.read(resource);
       const bytes = toUint8Array(result.content);
+      if (bytes.byteLength > MAX_READ_BYTES) {
+        return c.json({ error: `文件超过 2 MB 阅读上限（${bytes.byteLength} bytes）。` }, 413);
+      }
       const isBinary = bytes.subarray(0, 8192).includes(0);
       return c.json({
         resourceKey: result.resourceKey,
@@ -151,6 +175,102 @@ export default function registerPluginUiRoutes(app, ctx) {
       return c.json({ error: safeErrorMessage(error) }, 400);
     }
   });
+}
+
+async function searchResources(resources, rootResource, query, { caseSensitive = false } = {}) {
+  const needle = caseSensitive ? query : query.toLocaleLowerCase();
+  const queue = [{ resource: rootResource, relativePath: [] }];
+  const results = [];
+  let scannedFiles = 0;
+  let scannedDirectories = 0;
+  let scannedBytes = 0;
+  let skippedFiles = 0;
+  let truncated = false;
+
+  while (queue.length && scannedDirectories < MAX_SEARCH_DIRECTORIES && scannedFiles < MAX_SEARCH_FILES && results.length < MAX_SEARCH_RESULTS && scannedBytes < MAX_SEARCH_TOTAL_BYTES) {
+    const current = queue.shift();
+    scannedDirectories += 1;
+    let listed;
+    try {
+      listed = await resources.list(current.resource);
+    } catch {
+      skippedFiles += 1;
+      continue;
+    }
+    for (const item of listed.items || []) {
+      const child = item.resource || childResource(current.resource, item.name);
+      if (!child) continue;
+      const relativePath = [...current.relativePath, item.name];
+      if (item.isDirectory) {
+        queue.push({ resource: child, relativePath });
+        continue;
+      }
+      if (scannedFiles >= MAX_SEARCH_FILES || results.length >= MAX_SEARCH_RESULTS) {
+        truncated = true;
+        break;
+      }
+      const size = Number(item.size);
+      if (Number.isFinite(size) && size > MAX_SEARCH_FILE_BYTES) {
+        truncated = true;
+        continue;
+      }
+      let file;
+      try {
+        file = await resources.read(child);
+      } catch {
+        skippedFiles += 1;
+        continue;
+      }
+      const bytes = toUint8Array(file.content);
+      scannedFiles += 1;
+      scannedBytes += bytes.byteLength;
+      if (bytes.byteLength > MAX_SEARCH_FILE_BYTES || bytes.subarray(0, 8192).includes(0)) continue;
+      const text = new TextDecoder().decode(bytes);
+      const lines = text.split(/\r?\n/);
+      for (let lineIndex = 0; lineIndex < lines.length && results.length < MAX_SEARCH_RESULTS; lineIndex += 1) {
+        const line = lines[lineIndex];
+        const haystack = caseSensitive ? line : line.toLocaleLowerCase();
+        const column = haystack.indexOf(needle);
+        if (column < 0) continue;
+        results.push({
+          resource: child,
+          name: item.name,
+          relativePath,
+          line: lineIndex + 1,
+          column: column + 1,
+          preview: searchPreview(line, column),
+        });
+      }
+      if (results.length >= MAX_SEARCH_RESULTS) truncated = true;
+    }
+    if (queue.length && (scannedDirectories >= MAX_SEARCH_DIRECTORIES || scannedFiles >= MAX_SEARCH_FILES || scannedBytes >= MAX_SEARCH_TOTAL_BYTES)) truncated = true;
+  }
+  if (queue.length) truncated = true;
+  return { results, scannedFiles, scannedDirectories, scannedBytes, skippedFiles, truncated };
+}
+
+function searchPreview(line, column) {
+  const raw = String(line || '');
+  const clean = raw.trim();
+  if (clean.length <= 180) return clean;
+  const leading = raw.length - raw.trimStart().length;
+  const start = Math.max(0, Math.min(column - leading, clean.length - 180));
+  const end = Math.min(clean.length, start + 180);
+  return `${start ? '…' : ''}${clean.slice(start, end)}${end < clean.length ? '…' : ''}`;
+}
+
+function childResource(parent, name) {
+  if (!parent || typeof parent !== 'object' || typeof name !== 'string') return null;
+  if (parent.kind === 'local-file') {
+    const base = String(parent.path || '').replace(/[\\/]+$/, '');
+    const separator = String(parent.path || '').includes('\\') ? '\\' : '/';
+    return { ...parent, path: base ? `${base}${separator}${name}` : name };
+  }
+  if (parent.kind === 'mount') {
+    const base = String(parent.path || '').replace(/\/+$/, '');
+    return { ...parent, path: base ? `${base}/${name}` : `/${name}` };
+  }
+  return null;
 }
 
 function normalizeCopilotContext(value, maxChars) {

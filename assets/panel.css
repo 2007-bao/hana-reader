@@ -1173,8 +1173,8 @@ body[data-hana-theme="dark"] .tree-nested::before {
 
 .markdown-body .heading-number,
 .markdown-editor .ProseMirror .heading-number {
-  font-family: var(--reader-ui-font);
-  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  font-variant-numeric: normal;
 }
 
 .markdown-body ul > li::marker,

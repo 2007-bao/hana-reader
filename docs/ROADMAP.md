@@ -1,6 +1,6 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.4.1`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v1.4.2`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
 
@@ -128,6 +128,11 @@
 
 - Markdown fenced code block 复用引用块的安静边框与浅色背景，保留语法高亮。
 - 笔记本“导出 / 删除”按钮固定在同一行。
+
+## v1.4.2 标题拉丁字符统一
+
+- 标题中的英文、数字与序号统一继承标题本身的 Georgia / Noto Serif SC 字体。
+- 取消序号单独使用无衬线字体造成的割裂感。
 
 ## 下一阶段：优先级
 

@@ -1375,6 +1375,12 @@ button {
   line-height: var(--maple-line-height-normal);
 }
 
+.markdown-body .heading-number,
+.markdown-editor .ProseMirror .heading-number {
+  font-family: var(--reader-ui-font);
+  font-variant-numeric: tabular-nums;
+}
+
 .markdown-body ul > li::marker,
 .markdown-body ol > li::marker {
   color: var(--maple-red);

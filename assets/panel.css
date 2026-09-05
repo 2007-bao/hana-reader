@@ -231,6 +231,7 @@ select:focus-visible {
 }
 
 .file-panel {
+  position: relative;
   border-right-color: var(--reader-divider);
   display: flex;
   min-height: 0;
@@ -290,7 +291,14 @@ select:focus-visible {
 }
 
 .file-panel.is-collapsed .panel-heading-actions {
-  display: block;
+  display: none;
+}
+
+.file-panel-expand {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  left: 6px;
 }
 
 .copilot-panel.is-collapsed {

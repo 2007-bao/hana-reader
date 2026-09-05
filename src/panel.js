@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.3.1';
+const PLUGIN_VERSION = '1.3.2';
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
@@ -170,6 +170,9 @@ const state = {
   notebookText: '',
   notebooks: [],
   activeNotebookId: null,
+  notebookDeleteId: null,
+  notebookExportUrl: '',
+  notebookExportName: '',
   annotations: [],
   annotationKey: '',
   annotationComposer: null,
@@ -1186,8 +1189,14 @@ function showAnnotationComposer(viewer) {
   if (!viewer || !rect) return;
   const composer = document.createElement('div');
   composer.className = 'annotation-composer-popover';
-  composer.innerHTML = '<textarea data-annotation-composer aria-label="批注内容" placeholder="输入批注，Enter 保存，Shift + Enter 换行"></textarea>';
+  const quote = state.annotationComposer?.selection?.quote || state.selection?.quote || '';
+  composer.innerHTML = `<div class="annotation-composer-head"><strong>添加批注</strong><button type="button" data-annotation-composer-action="cancel" aria-label="取消批注">×</button></div><div class="annotation-composer-quote">“${escapeHtml(quote.slice(0, 120))}${quote.length > 120 ? '…' : ''}”</div><textarea data-annotation-composer aria-label="批注内容" placeholder="写下你的理解、疑问或修改理由……"></textarea><div class="annotation-composer-actions"><button type="button" class="button ghost tiny" data-annotation-composer-action="cancel">取消</button><button type="button" class="button primary tiny" data-annotation-composer-action="save">保存批注</button></div>`;
   composer.addEventListener('mousedown', (event) => event.preventDefault());
+  composer.addEventListener('click', (event) => {
+    const action = event.target.closest('[data-annotation-composer-action]')?.dataset.annotationComposerAction;
+    if (action === 'save') saveAnnotationComposer();
+    if (action === 'cancel') cancelAnnotationComposer();
+  });
   const input = composer.querySelector('[data-annotation-composer]');
   input?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) return;
@@ -1329,8 +1338,8 @@ function focusAnnotation(id) {
 function selectNotebook(id) {
   if (!state.notebooks.some((notebook) => notebook.id === id)) return;
   state.activeNotebookId = id;
-  syncNotebookText();
-  saveNotebook();
+  state.notebookDeleteId = null;
+  syncNotebookText();  saveNotebook();
   render();
 }
 
@@ -1338,15 +1347,22 @@ function createNotebookAction() {
   const notebook = createNotebook(`笔记 ${state.notebooks.length + 1}`);
   state.notebooks.push(notebook);
   state.activeNotebookId = notebook.id;
+  state.notebookDeleteId = null;
   state.notebookText = '';
   saveNotebook();
+  render();
+}
+
+function requestNotebookDelete(id) {
+  if (!state.notebooks.some((item) => item.id === id)) return;
+  state.notebookDeleteId = id;
   render();
 }
 
 function deleteNotebook(id) {
   const notebook = state.notebooks.find((item) => item.id === id);
   if (!notebook) return;
-  if (!window.confirm(`删除笔记本“${notebook.title}”？`)) return;
+  state.notebookDeleteId = null;
   state.notebooks = state.notebooks.filter((item) => item.id !== id);
   if (!state.notebooks.length) state.notebooks = [createNotebook()];
   if (state.activeNotebookId === id) state.activeNotebookId = state.notebooks[0].id;
@@ -1368,17 +1384,15 @@ function updateNotebookTitle() {
 function downloadNotebook() {
   const notebook = activeNotebook();
   if (!notebook) return;
+  if (state.notebookExportUrl) URL.revokeObjectURL(state.notebookExportUrl);
   const blob = new Blob([notebook.text || ''], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${(notebook.title || '阅读笔记').replace(/[\\/:*?"<>|]/g, '_')}.md`;
-  link.style.display = 'none';
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  state.status = '已导出 Notebook';
+  state.notebookExportUrl = URL.createObjectURL(blob);
+  state.notebookExportName = `${(notebook.title || '阅读笔记').replace(/[\\/:*?"<>|]/g, '_')}.md`;
+  state.status = '已准备 Notebook 导出文件';
+  render();
+  window.requestAnimationFrame(() => {
+    root.querySelector('[data-notebook-download-link]')?.click();
+  });
 }
 
 function buildCopilotRequest(promptOverride = '') {
@@ -1553,7 +1567,14 @@ function renderCopilotPanel() {
 function renderNotebookPanel() {
   const notebook = activeNotebook();
   if (!notebook) return '<div class="copilot-empty"><p>尚未创建笔记本。</p></div>';
-  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div><div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="download-notebook">导出</button></div><textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
+  const deleteTarget = state.notebooks.find((item) => item.id === state.notebookDeleteId);
+  const deletePrompt = deleteTarget
+    ? `<div class="notebook-delete-prompt" role="alert"><span>删除“${escapeHtml(deleteTarget.title)}”？</span><button class="button danger tiny" data-action="confirm-delete-notebook" data-notebook-id="${escapeHtml(deleteTarget.id)}">删除</button><button class="button ghost tiny" data-action="cancel-delete-notebook">取消</button></div>`
+    : '';
+  const exportLink = state.notebookExportUrl
+    ? `<div class="notebook-export-fallback"><a data-notebook-download-link href="${escapeHtml(state.notebookExportUrl)}" download="${escapeHtml(state.notebookExportName)}" target="_blank" rel="noopener">若未自动下载，点击此处保存 ${escapeHtml(state.notebookExportName)}</a></div>`
+    : '';
+  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="download-notebook">导出</button></div>${exportLink}<textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
 }
 
 let resizeCleanup = null;
@@ -1724,6 +1745,11 @@ function render() {
       if (action === 'focus-annotation') focusAnnotation(annotationIdValue);
       if (action === 'new-notebook') createNotebookAction();
       if (action === 'select-notebook') selectNotebook(element.dataset.notebookId);
+      if (action === 'confirm-delete-notebook') deleteNotebook(element.dataset.notebookId);
+      if (action === 'cancel-delete-notebook') {
+        state.notebookDeleteId = null;
+        render();
+      }
       if (action === 'download-notebook') downloadNotebook();
       if (action === 'copilot-submit') {
         const prompt = root.querySelector('[data-copilot-prompt]')?.value || '';
@@ -1747,7 +1773,8 @@ function render() {
   root.querySelectorAll('[data-action="select-notebook"]').forEach((notebookTab) => {
     notebookTab.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      deleteNotebook(notebookTab.dataset.notebookId);
+      event.stopPropagation();
+      requestNotebookDelete(notebookTab.dataset.notebookId);
     });
   });
 

@@ -33,7 +33,7 @@
   --reader-code-bg: #f5f6f7;
   --reader-heading: #20242a;
   --reader-scroll-thumb: #9aa1aa;
-  --reader-reading-bg: #fcfaf4;
+  --reader-reading-bg: #f3f4f5;
   --maple-morning: #9bc9ff;
   --maple-aurora: #59d2e5;
   --maple-ice: #73dff0;
@@ -82,7 +82,7 @@ body[data-hana-theme="dark"] {
   --reader-code-attr: var(--maple-morning);
   --reader-heading: #f0f2f5;
   --reader-scroll-thumb: #7d8792;
-  --reader-reading-bg: #28251f;
+  --reader-reading-bg: #25272b;
 }
 
 * {
@@ -2032,34 +2032,34 @@ body {
 .tree-row {
   position: relative;
   z-index: 1;
-  min-height: 20px;
-  padding-top: 1px;
-  padding-bottom: 1px;
-  font-size: 11px;
+  min-height: 18px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 12px;
 }
 
 .tree-name {
-  font-size: 11px;
-  line-height: 1.25;
+  font-size: 12px;
+  line-height: 1.15;
 }
 
 .tree-size {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .tree-row.directory {
-  margin-top: 3px;
-  padding-top: 2px;
-  padding-bottom: 2px;
+  margin-top: 1px;
+  padding-top: 1px;
+  padding-bottom: 1px;
 }
 
 .tree-nested .tree-row.directory {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .tree-nested .tree-row:not(.directory) {
-  padding-top: 1px;
-  padding-bottom: 1px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .tree-nested::before {
@@ -2284,6 +2284,39 @@ body {
   box-shadow: none;
 }
 
+.annotation-composer-head,
+.annotation-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.annotation-composer-head button {
+  border: 0;
+  padding: 0 4px;
+  color: var(--reader-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.annotation-composer-quote {
+  overflow: hidden;
+  margin: 5px 0 2px;
+  color: var(--reader-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-composer-actions {
+  justify-content: flex-end;
+  padding: 3px 2px 1px;
+}
+
 .annotation-underline,
 .annotation-comment {
   text-decoration-skip-ink: none;
@@ -2321,6 +2354,41 @@ body {
 
 .notebook-editor {
   font-size: 14px;
+}
+
+.notebook-delete-prompt,
+.notebook-export-fallback {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 7px 10px 0;
+  padding: 7px 9px;
+  border: 1px solid var(--reader-border);
+  border-radius: 8px;
+  background: var(--reader-soft);
+  color: var(--reader-text);
+  font-size: 11px;
+}
+
+.notebook-delete-prompt span {
+  flex: 1;
+  min-width: 0;
+}
+
+.notebook-export-fallback {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notebook-export-fallback a {
+  color: var(--reader-accent);
+  text-decoration: none;
+}
+
+.notebook-export-fallback a:hover {
+  text-decoration: underline;
 }
 
 .copilot-message-body .assistant-markdown {

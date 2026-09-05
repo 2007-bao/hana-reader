@@ -5,9 +5,9 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.4.2`
+- 当前版本：`v1.4.3`
 - 稳定基线：`main` / `v0.9.0`
-- 当前目标：完成批注选区、下划线和 Notebook 修复后的测试、构建和本地提交
+- 当前目标：完成 Quiet 读写旋钮集成后的开发环境手测与本地发布包验收
 - `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建
 
 ## 本阶段已经完成
@@ -71,7 +71,8 @@
 - `src/annotation-engine.js`：文本选区锚点、DOM 标记与批注类型。
 - `src/annotation-store.js`：本地批注存储与稳定资源键。
 - `src/notebook-store.js`：Notebook 存储、迁移和导出数据。
-- `assets/panel.css`：Hana 蓝视觉、文件树、悬浮控件、批注气泡和右栏样式。
+- `assets/panel.css`：Hana 蓝视觉、文件树、Quiet 旋钮、批注气泡和右栏样式。
+- `assets/native-knob.svg`：Quiet 原生读写旋钮的独立资产。
 - `routes/ui.js`：页面壳、ResourceIO 读写 / 搜索和 Copilot route。
 - `tests/`：manifest、渲染、编辑器、写回、路由和结构回归。
 

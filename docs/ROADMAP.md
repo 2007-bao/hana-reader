@@ -1,6 +1,6 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.4.2`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v1.4.3`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
 
@@ -133,6 +133,13 @@
 
 - 标题中的英文、数字与序号统一继承标题本身的 Georgia / Noto Serif SC 字体。
 - 取消序号单独使用无衬线字体造成的割裂感。
+
+## v1.4.3 Quiet 读写旋钮集成
+
+- 中间栏原有的读写按钮替换为 `assets/native-knob.svg`。
+- 左侧为只读、右侧为编辑；点击和左右方向键可操作。
+- 先完成可中断的 SVG 转场，再切换编辑器；reduced-motion 下直接切换。
+- 实验源目录保持独立，不参与 Reader 构建。
 
 ## 下一阶段：优先级
 

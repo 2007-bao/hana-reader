@@ -2,13 +2,14 @@
   "manifestVersion": 1,
   "id": "hana-reader",
   "name": "Hana Reader",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "A local-first reading workspace for reviewing AI and multi-agent artifacts.",
   "trust": "full-access",
   "minAppVersion": "0.159.0",
   "capabilities": [
     "resource.read",
-    "resource.write"
+    "resource.write",
+    "model.sample"
   ],
   "ui": {
     "hostCapabilities": [

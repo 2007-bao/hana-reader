@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 文件阅读工作台。
 
-> 当前版本：`v0.9.0` · Maple 阅读工作台与右侧 Notebook
+> 当前版本：`v1.0.0` · 阅读、Copilot、批注与 Notebook 工作台
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -13,7 +13,7 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 - 左侧浏览项目文件
 - 中间阅读、编辑和预览文本
 - 右侧接入 AI Copilot 或记录个人 Notebook
-- 后续支持选中文本批注、高亮、下划线和审阅状态
+- 选中文本批注、高亮、下划线和审阅状态
 
 ## 当前已完成
 
@@ -41,38 +41,33 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 - 左侧文件树内部紧凑，不同文件夹之间适度分组
 - 文件树和阅读区滚动位置保持
 
-### 右侧 Notebook
+### Copilot
 
-- 右侧可以在 `Copilot` 与 `Notebook` 之间切换
-- Notebook 可记录阅读心得、知识点和待办
-- 内容独立于当前文件
-- 使用浏览器本地存储自动保存
+- 通过 Hana `model:sample-text` 接入实际文本模型
+- 仅发送用户明确勾选的当前文件或选中文本
+- 支持总结、解释、知识点提取和 Markdown 审阅快捷任务
+- 按文件保存对话历史，支持失败重试和上下文长度控制
+- 修改建议必须经过原文匹配、预览确认后才应用回 Markdown
 
-注意：右侧 Copilot 当前已完成界面基础和切换入口，AI 实际能力尚未接入。
+### Markdown 批注与审阅
 
-## 当前未完成的核心功能
+- 选中文本后添加批注、高亮或下划线
+- 批注支持回复、编辑、删除、完成/重新打开和最近一次操作撤销
+- 批注侧栏支持定位原文，并使用文本锚点在重新打开后恢复
+- 批注存于本机浏览器，不向普通 Markdown 注入私有语法
 
-1. **AI Copilot 实际接入**
-   - 当前文件和选中文本上下文
-   - 总结、解释、提取知识点
-   - 修改建议与应用回 Markdown
-   - 对话历史、失败重试和上下文长度控制
+### Notebook
 
-2. **Markdown 扩展批注与审阅**
-   - 选中文本后添加批注
-   - 黄色高亮、下划线等审阅标记
-   - 批注回复、编辑、删除和完成状态
-   - 批注与原文位置绑定、重新打开后恢复
-   - 批注侧栏、原文定位、撤销和冲突处理
-   - 不破坏普通 Markdown 文件兼容性
+- 多份 Notebook、标题编辑、切换、新建和删除
+- 引用当前文件或选中文本
+- 从批注或 Copilot 回复一键生成笔记
+- Markdown 预览、下载导出和带版本校验的安全写回
+- 内容独立于当前文件，使用浏览器本地存储自动保存
 
-3. **Notebook 增强**
-   - 笔记与当前文件或选中文本建立引用
-   - 从批注或 AI 回复一键生成笔记
-   - Markdown 笔记预览、多份笔记和导出
+## 当前剩余候选能力
 
-其他候选能力包括全文搜索、跨文件问答、Git 状态、多标签和更完整的审阅工作流。
-完整清单见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
+核心工作台已经完成。后续候选能力包括全文搜索、跨文件问答、Git 状态、多标签、sidecar 协作同步和更完整的审阅合并工作流。
+完整清单与明确限制见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
 ## 给下一次 AI / 新对话的交接说明
 
@@ -82,12 +77,14 @@ Hana Reader 的目标不是普通 Markdown 编辑器，而是一个“阅读—�
 2. [`docs/NEXT_SESSION_HANDOFF.md`](docs/NEXT_SESSION_HANDOFF.md)：当前阶段、边界、任务入口和验收要求
 3. [`docs/ROADMAP.md`](docs/ROADMAP.md)：后续功能清单
 4. [`COLLABORATION.md`](COLLABORATION.md)：分支、提交、PR 和资料边界
-5. `src/panel.js`：页面状态、三栏布局、文件树和右侧 Notebook/Copilot 入口
-6. `assets/panel.css`：Maple 视觉、标题色阶、代码配色、文件树层级线
-7. `src/markdown-engine.js`：Markdown 渲染、标题编号和安全扩展入口
-8. `src/markdown-editor.js`：Markdown 编辑器
-9. `routes/ui.js`：页面壳、资源读取和安全写回路由
-10. `tests/`：当前回归测试和验证方式
+5. `src/panel.js`：页面状态、Copilot、批注、Notebook、三栏布局和文件树
+6. `src/annotation-engine.js`、`src/annotation-store.js`：批注定位与本地持久化
+7. `src/notebook-store.js`：多份 Notebook、迁移和引用
+8. `assets/panel.css`：Maple 视觉与三类右侧工作流样式
+9. `src/markdown-engine.js`：Markdown 渲染、标题编号和安全扩展入口
+10. `src/markdown-editor.js`：Markdown 编辑器
+11. `routes/ui.js`：页面壳、ResourceIO 和 Copilot route
+12. `tests/`：当前回归测试和验证方式
 
 下一位 AI 处理代码前，应先确认：
 
@@ -142,10 +139,10 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前稳定基线：`main` / `v0.9.0`。
+当前稳定基线：`main` / `v0.9.0`；本地完成目标：`feat/complete-reader-workbench` / `v1.0.0`。
 
 上一阶段已完成 PR：
 
 - PR #30：Maple 文件树图标、层级线、滚动保持和蓝色视觉体系
 
-后续功能清单和边界以 `docs/ROADMAP.md` 为准。
+后续候选功能和边界以 `docs/ROADMAP.md` 为准。`knob-motion-lab/` 是其他对话的旋钮实验目录，不属于本插件。

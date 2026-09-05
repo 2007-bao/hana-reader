@@ -10,13 +10,17 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v0.9.0 reader page with guarded resource access', async () => {
+test('manifest declares the v1.0.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
+  const packageJson = await readJson('package.json');
+  const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '0.9.0');
+  assert.equal(manifest.version, '1.0.0');
+  assert.equal(packageJson.version, manifest.version);
+  assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
-  assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write']);
+  assert.deepEqual(manifest.capabilities, ['resource.read', 'resource.write', 'model.sample']);
   assert.equal(manifest.contributes.page.route, '/page');
   assert.ok(manifest.ui.hostCapabilities.includes('resource.pick'));
   assert.ok(manifest.dev.scenarios.some((scenario) => scenario.id === 'open-page'));
@@ -30,6 +34,12 @@ test('reader source, built assets, and cache-busting route are present', async (
     'src/panel.js',
     'src/markdown-engine.js',
     'src/markdown-editor.js',
+    'src/annotation-engine.js',
+    'src/annotation-store.js',
+    'src/notebook-store.js',
+    'tests/annotation-engine.test.mjs',
+    'tests/copilot-route.test.mjs',
+    'tests/workspace-state.test.mjs',
     'docs/S2_EDITOR_VALIDATION.md',
     'docs/S3_SAFE_WRITE.md',
     'docs/S4_CODE_HTML.md',
@@ -57,12 +67,14 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '0\.9\.0'/);
+  assert.match(route, /ASSET_REVISION = '1\.0\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/write'/);
+  assert.match(route, /app\.post\('\/copilot\/ask'/);
+  assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '0.9.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.0.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -87,6 +99,13 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /NOTEBOOK_STORAGE_KEY/);
   assert.match(panelSource, /show-notebook/);
   assert.match(panelSource, /data-notebook/);
+  assert.match(panelSource, /applyAnnotationMarks/);
+  assert.match(panelSource, /copilot-submit/);
+  assert.match(panelSource, /prepareCopilotApply/);
+  assert.match(panelSource, /aria-live="polite"/);
+  assert.match(panelSource, /retry-save/);
+  assert.match(panelSource, /discard-draft/);
+  assert.match(panelSource, /suppressEditorRemount/);
   assert.match(panelSource, /tree-nested.*nested-depth/);
   assert.match(panelSource, /fileIconType/);
   assert.match(panelSource, /previousTreeScroll/);

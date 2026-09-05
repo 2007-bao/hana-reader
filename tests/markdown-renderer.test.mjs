@@ -92,7 +92,7 @@ test('Chromium DOM keeps README blocks outside emphasis elements', async (t) => 
 
     assert.match(dom, /<h2>目录结构<\/h2>/);
     assert.match(dom, /<pre class="markdown-code"><code class="language-text">/);
-    assert.match(dom, /<h2>权限边界<\/h2>/);
+    assert.match(dom, /<h2>权限与安全边界<\/h2>/);
     assert.doesNotMatch(dom, /<h2><em>/);
     assert.doesNotMatch(dom, /<pre><em>/);
     assert.doesNotMatch(dom, /<ul><em>/);

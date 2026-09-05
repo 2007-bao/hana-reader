@@ -1,10 +1,64 @@
 import { createHash } from 'node:crypto';
 
 const MAX_READ_BYTES = 2 * 1024 * 1024;
-const ASSET_REVISION = '0.9.0';
+const MAX_COPILOT_CONTEXT_CHARS = 24000;
+const MAX_COPILOT_HISTORY_ITEMS = 12;
+const ASSET_REVISION = '1.0.0';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));
+
+  app.post('/copilot/ask', async (c) => {
+    try {
+      const input = await c.req.json();
+      const prompt = clipText(input?.prompt, 4000).text.trim();
+      if (!prompt) return c.json({ error: '请先输入一个问题。' }, 400);
+
+      const file = normalizeCopilotContext(input?.file, MAX_COPILOT_CONTEXT_CHARS);
+      const selection = normalizeCopilotContext(input?.selection, 12000);
+      const history = normalizeCopilotHistory(input?.history);
+      const contextParts = [];
+      if (file?.content) contextParts.push(`【当前文件：${file.name || '未命名文件'}】\n${file.content}`);
+      if (selection?.content) contextParts.push(`【用户选中的文本】\n${selection.content}`);
+      const context = clipText(contextParts.join('\n\n'), MAX_COPILOT_CONTEXT_CHARS);
+      const userMessage = contextParts.length
+        ? `${prompt}\n\n请只基于以下由用户明确选择的上下文回答；如果上下文不足，请明确说出来。\n\n${context.text}`
+        : prompt;
+
+      const pluginCtx = c.get('pluginCtx') || ctx;
+      const requestContext = c.get('pluginRequestContext');
+      const bus = requestContext?.bus || pluginCtx?.bus;
+      if (!bus || typeof bus.request !== 'function') {
+        return c.json({ error: '当前 Hana 版本没有可用的文本模型接口。' }, 503);
+      }
+
+      const result = await bus.request('model:sample-text', {
+        pluginId: pluginCtx?.pluginId || 'hana-reader',
+        operation: 'hana-reader-copilot',
+        systemPrompt: [
+          '你是 Hana Reader 的阅读助手。',
+          '回答要简洁、准确、可执行；不要假装看到了未提供的文件。',
+          '如果用户要求修改 Markdown，请把可直接替换的结果放在一个 markdown 代码块中，并保留必要的 Markdown 结构。',
+          '除非用户要求，不要输出冗长的思维过程。',
+        ].join('\n'),
+        messages: [...history, { role: 'user', content: userMessage }],
+        maxTokens: 1600,
+        temperature: 0.2,
+      });
+      const text = extractModelText(result);
+      if (!text) return c.json({ error: '文本模型没有返回可显示的内容。' }, 502);
+      return c.json({
+        text,
+        truncated: {
+          file: Boolean(input?.file?.content && file?.truncated),
+          selection: Boolean(input?.selection?.content && selection?.truncated),
+          combined: context.truncated,
+        },
+      });
+    } catch (error) {
+      return c.json({ error: safeErrorMessage(error) }, error?.status === 403 ? 403 : 502);
+    }
+  });
 
   // M0 keeps the resource boundary on the server: the iframe never reads a host path directly.
   app.post('/resources/list', async (c) => {
@@ -97,6 +151,54 @@ export default function registerPluginUiRoutes(app, ctx) {
       return c.json({ error: safeErrorMessage(error) }, 400);
     }
   });
+}
+
+function normalizeCopilotContext(value, maxChars) {
+  if (!value || typeof value !== 'object') return null;
+  const content = typeof value.content === 'string' ? value.content : '';
+  if (!content) return null;
+  const clipped = clipText(content, maxChars);
+  return {
+    name: typeof value.name === 'string' ? clipText(value.name, 240).text : '',
+    language: typeof value.language === 'string' ? clipText(value.language, 80).text : '',
+    content: clipped.text,
+    truncated: clipped.truncated,
+  };
+}
+
+function normalizeCopilotHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
+    .slice(-MAX_COPILOT_HISTORY_ITEMS)
+    .map((item) => ({ role: item.role, content: clipText(item.content, 6000).text }));
+}
+
+function clipText(value, maxChars) {
+  const text = String(value || '');
+  const limit = Math.max(1, Number(maxChars) || MAX_COPILOT_CONTEXT_CHARS);
+  if (text.length <= limit) return { text, truncated: false };
+  const head = Math.max(1, Math.floor(limit * 0.82));
+  const tail = Math.max(0, limit - head);
+  return {
+    text: `${text.slice(0, head)}\n\n[…上下文已截断，末尾内容…]\n\n${tail ? text.slice(-tail) : ''}`,
+    truncated: true,
+  };
+}
+
+function extractModelText(value) {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object') return '';
+  if (typeof value.text === 'string') return value.text.trim();
+  if (typeof value.outputText === 'string') return value.outputText.trim();
+  if (typeof value.content === 'string') return value.content.trim();
+  if (Array.isArray(value.content)) {
+    return value.content.map((item) => typeof item === 'string' ? item : item?.text || '').filter(Boolean).join('\n').trim();
+  }
+  if (value.output) return extractModelText(value.output);
+  if (value.result) return extractModelText(value.result);
+  if (value.data) return extractModelText(value.data);
+  return '';
 }
 
 function renderShell(c, ctx) {

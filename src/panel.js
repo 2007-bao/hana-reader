@@ -1,21 +1,29 @@
 import { highlightCode, renderMarkdown, sanitizeHtmlPreview } from './markdown-engine.js';
 import { mountMarkdownEditor } from './markdown-editor.js';
+import { applyAnnotationMarks, selectionAnchor } from './annotation-engine.js';
+import { annotationResourceKey, loadAnnotations, saveAnnotations } from './annotation-store.js';
+import { appendNotebookReference, createNotebook, loadNotebookStore, saveNotebookStore } from './notebook-store.js';
 
 const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '0.9.0';
+const PLUGIN_VERSION = '1.0.0';
 const MAX_EDIT_BYTES = 512 * 1024;
+const MAX_COPILOT_CONTEXT_CHARS = 24000;
 const SESSION_STORAGE_KEY = 'hana-reader:last-session:v1';
 const LAYOUT_STORAGE_KEY = 'hana-reader:layout:v1';
-const NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v1';
+const NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v2';
+const LEGACY_NOTEBOOK_STORAGE_KEY = 'hana-reader:notebook:v1';
+const ANNOTATION_STORAGE_KEY = 'hana-reader:annotations:v1';
+const COPILOT_STORAGE_KEY = 'hana-reader:copilot:v1';
 
 let sequence = 0;
 let activeMarkdownEditor = null;
 let pendingMarkdownEditor = null;
 let editorGeneration = 0;
 let autoSaveTimer = null;
+let suppressEditorRemount = false;
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -154,6 +162,31 @@ const state = {
   rightCollapsed: false,
   rightView: 'copilot',
   notebookText: '',
+  notebooks: [],
+  activeNotebookId: null,
+  notebookPreview: false,
+  annotations: [],
+  annotationKey: '',
+  annotationComposer: null,
+  annotationEditorId: null,
+  annotationReplyId: null,
+  annotationUndo: null,
+  focusAnnotationId: null,
+  selection: null,
+  copilot: {
+    messages: [],
+    prompt: '',
+    includeFile: false,
+    includeSelection: true,
+    selection: null,
+    busy: false,
+    pendingPrompt: '',
+    error: '',
+    lastRequest: null,
+    suggestion: null,
+    truncated: null,
+    contextLimit: 16000,
+  },
   status: '请选择一个文件夹开始阅读',
   error: '',
 };
@@ -187,23 +220,70 @@ function saveLayout() {
 
 Object.assign(state, readLayout());
 
-function readNotebook() {
+function readNotebookStore() {
   try {
-    return window.localStorage.getItem(NOTEBOOK_STORAGE_KEY) || '';
+    if (window.localStorage.getItem(NOTEBOOK_STORAGE_KEY)) {
+      return loadNotebookStore(window.localStorage, NOTEBOOK_STORAGE_KEY);
+    }
+    return loadNotebookStore(window.localStorage, LEGACY_NOTEBOOK_STORAGE_KEY);
   } catch {
-    return '';
+    return loadNotebookStore(null, NOTEBOOK_STORAGE_KEY);
   }
+}
+
+function activeNotebook() {
+  return state.notebooks.find((notebook) => notebook.id === state.activeNotebookId) || state.notebooks[0] || null;
+}
+
+function syncNotebookText() {
+  state.notebookText = activeNotebook()?.text || '';
 }
 
 function saveNotebook() {
+  const note = activeNotebook();
+  if (note) {
+    note.text = state.notebookText;
+    note.updatedAt = Date.now();
+  }
+  saveNotebookStore(window.localStorage, NOTEBOOK_STORAGE_KEY, {
+    activeId: state.activeNotebookId,
+    notebooks: state.notebooks,
+  });
+}
+
+function readCopilotHistory(resourceKey) {
+  if (!resourceKey) return [];
   try {
-    window.localStorage.setItem(NOTEBOOK_STORAGE_KEY, state.notebookText);
+    const value = JSON.parse(window.localStorage.getItem(COPILOT_STORAGE_KEY) || '{}');
+    const messages = value?.[resourceKey];
+    return Array.isArray(messages)
+      ? messages.filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').slice(-24)
+      : [];
   } catch {
-    // A restricted or full storage quota must never break note taking.
+    return [];
   }
 }
 
-state.notebookText = readNotebook();
+function saveCopilotHistory(resourceKey) {
+  if (!resourceKey) return;
+  try {
+    const value = JSON.parse(window.localStorage.getItem(COPILOT_STORAGE_KEY) || '{}');
+    value[resourceKey] = state.copilot.messages.slice(-24);
+    window.localStorage.setItem(COPILOT_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Local history is an enhancement; quota failures must not break reading.
+  }
+}
+
+function saveAnnotationsForCurrent() {
+  if (!state.annotationKey) return;
+  saveAnnotations(window.localStorage, ANNOTATION_STORAGE_KEY, state.annotationKey, state.annotations);
+}
+
+const notebookStore = readNotebookStore();
+state.notebooks = notebookStore.notebooks?.length ? notebookStore.notebooks : [createNotebook()];
+state.activeNotebookId = notebookStore.activeId || state.notebooks[0]?.id || null;
+syncNotebookText();
 
 function readSavedSession() {
   try {
@@ -410,16 +490,28 @@ function currentDraft() {
   return state.current.draftContent ?? state.current.content;
 }
 
+function updateFooterStatus() {
+  const status = root.querySelector('.bottom-bar .status');
+  if (!status) return;
+  status.textContent = state.error || state.status;
+  status.classList.toggle('error', Boolean(state.error));
+}
+
 function updateEditorStatus() {
   const status = root.querySelector('#editor-status');
   if (!status || !state.current) return;
-  if (state.current.conflict) {
+  if (state.current.saveFailed) {
+    status.textContent = '自动保存失败 · 可重试或放弃草稿';
+  } else if (state.current.conflict) {
     status.textContent = '检测到外部修改 · 尚未写回';
   } else if (state.current.draftDirty) {
     status.textContent = '本地草稿 · 尚未写回';
   } else {
     status.textContent = '编辑中 · 未修改';
   }
+  root.querySelectorAll('[data-action="retry-save"], [data-action="discard-draft"]').forEach((button) => {
+    button.hidden = !state.current.saveFailed;
+  });
 }
 
 async function mountCurrentEditor() {
@@ -433,6 +525,7 @@ async function mountCurrentEditor() {
         if (generation !== editorGeneration || state.current !== session || !state.editing) return;
         state.current.draftContent = markdown;
         state.current.draftDirty = markdown !== state.current.content;
+        state.current.saveFailed = false;
         updateEditorStatus();
         scheduleAutoSave();
       },
@@ -463,6 +556,7 @@ async function mountCurrentEditor() {
     if (!state.current || !state.editing) return;
     state.current.draftContent = textarea.value;
     state.current.draftDirty = textarea.value !== state.current.content;
+    state.current.saveFailed = false;
     updateEditorStatus();
     scheduleAutoSave();
   });
@@ -497,6 +591,10 @@ async function chooseFolder() {
     });
     state.rootNode.expanded = true;
     state.current = null;
+    state.annotations = [];
+    state.annotationKey = '';
+    state.selection = null;
+    state.copilot.selection = null;
     saveSession();
     await loadDirectory(state.rootNode);
     saveSession();
@@ -539,6 +637,11 @@ async function loadDirectory(node) {
 
 async function openFile(node, options = {}) {
   if (!node?.resource || node.isDirectory || state.busy) return;
+  if (state.current?.node?.id === node.id) {
+    state.status = `${languageLabel(state.current.language)} · 当前文件已打开`;
+    updateFooterStatus();
+    return;
+  }
   await destroyMarkdownEditor();
   state.editing = false;
   state.busy = true;
@@ -548,17 +651,41 @@ async function openFile(node, options = {}) {
 
   try {
     const result = await apiJson('resources/read', { resource: node.resource });
+    const language = inferLanguage(node.name);
+    const annotationKey = annotationResourceKey(node.resource);
     state.current = {
       node,
       name: node.name,
-      language: inferLanguage(node.name),
+      language,
       binary: Boolean(result.binary),
       content: result.content || '',
       version: result.version || null,
-      editable: inferLanguage(node.name) === 'markdown' && byteLength(result.content || '') <= MAX_EDIT_BYTES,
+      editable: language === 'markdown' && byteLength(result.content || '') <= MAX_EDIT_BYTES,
       baseSha256: await sha256Text(result.content || ''),
       htmlPreview: false,
       scrollTop: Number.isFinite(Number(options.scrollTop)) ? Math.max(0, Number(options.scrollTop)) : 0,
+      annotationKey,
+      annotations: language === 'markdown' ? loadAnnotations(window.localStorage, ANNOTATION_STORAGE_KEY, annotationKey) : [],
+      saveFailed: false,
+    };
+    state.annotationKey = annotationKey;
+    state.annotations = state.current.annotations;
+    state.selection = null;
+    state.annotationComposer = null;
+    state.annotationEditorId = null;
+    state.annotationReplyId = null;
+    state.annotationUndo = null;
+    state.copilot = {
+      ...state.copilot,
+      messages: readCopilotHistory(annotationKey),
+      prompt: '',
+      selection: null,
+      error: '',
+      lastRequest: null,
+      suggestion: null,
+      pendingPrompt: '',
+      truncated: null,
+      contextLimit: state.copilot.contextLimit || 16000,
     };
     saveSession();
     state.status = `${languageLabel(state.current.language)} · 只读`;
@@ -576,6 +703,10 @@ async function refreshRoot() {
   await destroyMarkdownEditor();
   state.editing = false;
   state.current = null;
+  state.annotations = [];
+  state.annotationKey = '';
+  state.selection = null;
+  state.copilot.selection = null;
   state.rootNode.items = [];
   state.rootNode.loaded = false;
   await loadDirectory(state.rootNode);
@@ -725,6 +856,7 @@ async function startEditing() {
   state.editing = true;
   state.current.draftContent = state.current.content;
   state.current.draftDirty = false;
+  state.current.saveFailed = false;
   state.current.conflict = null;
   render();
 
@@ -742,7 +874,7 @@ let pendingTransition = null;
 
 function scheduleAutoSave() {
   window.clearTimeout(autoSaveTimer);
-  if (!state.current?.draftDirty || !state.editing) return;
+  if (!state.current?.draftDirty || !state.editing || state.current.saveFailed) return;
   autoSaveTimer = window.setTimeout(() => {
     autoSaveTimer = null;
     saveCurrent({ preserveEditor: true });
@@ -752,7 +884,7 @@ function scheduleAutoSave() {
 async function flushAutoSave() {
   window.clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
-  if (state.editing && state.current?.draftDirty) {
+  if (state.editing && state.current?.draftDirty && !state.current.saveFailed) {
     await saveCurrent({ preserveEditor: true });
   }
 }
@@ -788,13 +920,15 @@ async function stopEditing() {
 
 async function saveCurrent({ preserveEditor = false } = {}) {
   if (!state.current || state.busy || !state.current.draftDirty) return;
-
+  const current = state.current;
+  let saved = false;
+  current.saveFailed = false;
   state.busy = true;
   state.error = '';
   state.status = `正在自动保存 ${state.current.name}…`;
+  if (preserveEditor) updateFooterStatus();
   if (!preserveEditor) render();
   try {
-    const current = state.current;
     const draft = currentDraft();
     let result;
     try {
@@ -824,21 +958,55 @@ async function saveCurrent({ preserveEditor = false } = {}) {
     current.conflict = null;
     current.version = result.version || current.version;
     current.baseSha256 = result.sha256 || await sha256Text(current.content);
+    current.saveFailed = false;
+    saved = true;
     state.status = `${languageLabel(current.language)} · 已自动保存`;
   } catch (error) {
+    current.saveFailed = true;
     state.error = error instanceof Error ? error.message : String(error);
     state.status = '自动保存失败，请重试';
   } finally {
     state.busy = false;
     updateEditorStatus();
+    updateFooterStatus();
+    if (preserveEditor && current.saveFailed) render();
     if (!preserveEditor) {
       await destroyMarkdownEditor();
+      suppressEditorRemount = true;
       render();
       await mountCurrentEditor();
-    } else if (state.current?.draftDirty) {
+    } else if (state.current?.draftDirty && !state.current.saveFailed && saved) {
       scheduleAutoSave();
     }
   }
+}
+
+function retrySaveCurrent() {
+  if (!state.current?.draftDirty || state.busy) return;
+  state.current.saveFailed = false;
+  state.error = '';
+  updateEditorStatus();
+  updateFooterStatus();
+  saveCurrent({ preserveEditor: true });
+}
+
+async function discardDraft() {
+  if (!state.current || state.busy) return;
+  window.clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+  await destroyMarkdownEditor();
+  state.current.draftContent = state.current.content;
+  state.current.draftDirty = false;
+  state.current.saveFailed = false;
+  state.current.conflict = null;
+  state.error = '';
+  state.status = `${languageLabel(state.current.language)} · 已放弃本地草稿`;
+  state.editing = false;
+  delete state.current.draftContent;
+  delete state.current.draftDirty;
+  delete state.current.saveFailed;
+  delete state.current.conflict;
+  render();
 }
 
 async function undoLastWrite() {
@@ -874,6 +1042,445 @@ async function undoLastWrite() {
   }
 }
 
+function currentSelection() {
+  return state.selection || state.copilot.selection || null;
+}
+
+function selectionForCopilot() {
+  const selection = state.copilot.selection;
+  if (!selection?.quote) return null;
+  return {
+    content: clipContext(selection.quote, 12000),
+    quote: selection.quote,
+    prefix: selection.prefix,
+    suffix: selection.suffix,
+  };
+}
+
+function clipContext(value, limit) {
+  const text = String(value || '');
+  if (text.length <= limit) return text;
+  const head = Math.max(1, Math.floor(limit * 0.82));
+  const tail = Math.max(0, limit - head);
+  return `${text.slice(0, head)}\n\n[…已截断…]\n\n${tail ? text.slice(-tail) : ''}`;
+}
+
+function recordAnnotationUndo() {
+  state.annotationUndo = state.annotations.map((annotation) => ({
+    ...annotation,
+    replies: (annotation.replies || []).map((reply) => ({ ...reply })),
+  }));
+}
+
+function undoAnnotationChange() {
+  if (!state.annotationUndo) return;
+  state.annotations = state.annotationUndo;
+  state.annotationUndo = null;
+  if (state.current) state.current.annotations = state.annotations;
+  saveAnnotationsForCurrent();
+  state.status = '已撤销上次批注操作';
+  render();
+}
+
+function annotationById(id) {
+  return state.annotations.find((annotation) => annotation.id === id) || null;
+}
+
+function annotationId() {
+  return globalThis.crypto?.randomUUID?.() || `annotation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function beginAnnotation(kind) {
+  if (!state.current || state.current.language !== 'markdown' || !state.selection?.quote) {
+    state.error = '请先在 Markdown 正文中选中文本。';
+    render();
+    return;
+  }
+  if (kind === 'highlight' || kind === 'underline') {
+    recordAnnotationUndo();
+    const annotation = makeAnnotation(kind, '');
+    state.annotations.push(annotation);
+    state.current.annotations = state.annotations;
+    saveAnnotationsForCurrent();
+    state.focusAnnotationId = annotation.id;
+    state.selection = null;
+    state.rightView = 'annotations';
+    state.status = kind === 'highlight' ? '已添加高亮' : '已添加下划线';
+    render();
+    return;
+  }
+  state.annotationComposer = { kind: 'comment', selection: { ...state.selection } };
+  state.rightView = 'annotations';
+  render();
+}
+
+function makeAnnotation(kind, note) {
+  const selection = state.annotationComposer?.selection || state.selection;
+  const now = Date.now();
+  return {
+    id: annotationId(),
+    kind,
+    quote: selection.quote,
+    prefix: selection.prefix || '',
+    suffix: selection.suffix || '',
+    note: String(note || '').slice(0, 4000),
+    replies: [],
+    resolved: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function saveAnnotationComposer() {
+  if (!state.annotationComposer) return;
+  const input = root.querySelector('[data-annotation-composer]');
+  const note = input?.value?.trim() || '';
+  recordAnnotationUndo();
+  const annotation = makeAnnotation('comment', note);
+  state.annotations.push(annotation);
+  state.current.annotations = state.annotations;
+  saveAnnotationsForCurrent();
+  state.annotationComposer = null;
+  state.selection = null;
+  state.focusAnnotationId = annotation.id;
+  state.status = '已添加批注';
+  render();
+}
+
+function updateAnnotationNote(id) {
+  const annotation = annotationById(id);
+  if (!annotation) return;
+  const input = root.querySelector(`[data-annotation-edit="${id}"]`);
+  if (!input) return;
+  recordAnnotationUndo();
+  annotation.note = input.value.trim().slice(0, 4000);
+  annotation.updatedAt = Date.now();
+  state.annotationEditorId = null;
+  saveAnnotationsForCurrent();
+  render();
+}
+
+function addAnnotationReply(id) {
+  const annotation = annotationById(id);
+  if (!annotation) return;
+  const input = root.querySelector(`[data-annotation-reply="${id}"]`);
+  const text = input?.value?.trim();
+  if (!text) return;
+  recordAnnotationUndo();
+  annotation.replies.push({ id: annotationId(), text: text.slice(0, 2000), createdAt: Date.now() });
+  annotation.updatedAt = Date.now();
+  state.annotationReplyId = null;
+  saveAnnotationsForCurrent();
+  render();
+}
+
+function toggleAnnotationResolved(id) {
+  const annotation = annotationById(id);
+  if (!annotation) return;
+  recordAnnotationUndo();
+  annotation.resolved = !annotation.resolved;
+  annotation.updatedAt = Date.now();
+  saveAnnotationsForCurrent();
+  render();
+}
+
+function deleteAnnotation(id) {
+  recordAnnotationUndo();
+  state.annotations = state.annotations.filter((annotation) => annotation.id !== id);
+  if (state.current) state.current.annotations = state.annotations;
+  if (state.focusAnnotationId === id) state.focusAnnotationId = null;
+  saveAnnotationsForCurrent();
+  render();
+}
+
+function focusAnnotation(id) {
+  state.focusAnnotationId = id;
+  state.rightView = 'annotations';
+  render();
+  window.requestAnimationFrame(() => {
+    const mark = [...root.querySelectorAll('[data-annotation-id]')].find((element) => element.dataset.annotationId === id);
+    mark?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    mark?.classList.add('is-focused');
+    window.setTimeout(() => mark?.classList.remove('is-focused'), 1200);
+  });
+}
+
+function annotationToNotebook(id) {
+  const annotation = annotationById(id);
+  const notebook = activeNotebook();
+  if (!annotation || !notebook || !state.current) return;
+  const next = appendNotebookReference(notebook, {
+    fileName: state.current.name,
+    quote: annotation.quote,
+    note: annotation.note,
+  });
+  Object.assign(notebook, next);
+  state.activeNotebookId = notebook.id;
+  syncNotebookText();
+  saveNotebook();
+  state.rightView = 'notebook';
+  state.status = '已将批注加入 Notebook';
+  render();
+}
+
+function appendCurrentSelectionToNotebook() {
+  const notebook = activeNotebook();
+  if (!notebook || !state.current) return;
+  const selection = currentSelection();
+  const next = appendNotebookReference(notebook, {
+    fileName: state.current.name,
+    quote: selection?.quote || '',
+  });
+  Object.assign(notebook, next);
+  syncNotebookText();
+  saveNotebook();
+  state.rightView = 'notebook';
+  state.selection = null;
+  state.status = selection?.quote ? '已将选中文本加入 Notebook' : '已将当前文件加入 Notebook';
+  render();
+}
+
+function selectNotebook(id) {
+  if (!state.notebooks.some((notebook) => notebook.id === id)) return;
+  state.activeNotebookId = id;
+  state.notebookPreview = false;
+  syncNotebookText();
+  saveNotebook();
+  render();
+}
+
+function createNotebookAction() {
+  const notebook = createNotebook(`笔记 ${state.notebooks.length + 1}`);
+  state.notebooks.push(notebook);
+  state.activeNotebookId = notebook.id;
+  state.notebookText = '';
+  saveNotebook();
+  render();
+}
+
+function deleteActiveNotebook() {
+  if (state.notebooks.length <= 1) {
+    const notebook = activeNotebook();
+    if (notebook) {
+      notebook.text = '';
+      notebook.title = '阅读笔记';
+      notebook.updatedAt = Date.now();
+    }
+  } else {
+    const index = state.notebooks.findIndex((notebook) => notebook.id === state.activeNotebookId);
+    state.notebooks = state.notebooks.filter((notebook) => notebook.id !== state.activeNotebookId);
+    state.activeNotebookId = state.notebooks[Math.max(0, index - 1)]?.id || state.notebooks[0]?.id || null;
+  }
+  syncNotebookText();
+  saveNotebook();
+  render();
+}
+
+function updateNotebookTitle() {
+  const notebook = activeNotebook();
+  const input = root.querySelector('[data-notebook-title]');
+  if (!notebook || !input) return;
+  notebook.title = input.value.trim().slice(0, 80) || '未命名笔记';
+  notebook.updatedAt = Date.now();
+  saveNotebook();
+}
+
+function downloadNotebook() {
+  const notebook = activeNotebook();
+  if (!notebook) return;
+  const blob = new Blob([notebook.text || ''], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${(notebook.title || '阅读笔记').replace(/[\\/:*?"<>|]/g, '_')}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
+  state.status = '已导出 Notebook';
+}
+
+async function exportNotebookToResource() {
+  const notebook = activeNotebook();
+  if (!notebook || state.busy) return;
+  state.busy = true;
+  state.error = '';
+  state.status = '请选择一个用于写回的 Markdown 文件…';
+  render();
+  try {
+    const picked = await hana.resources.pick({ mode: 'file', multiple: false, capability: 'resource.write' });
+    const resource = picked?.resources?.[0];
+    if (!resource) {
+      state.status = '未选择导出文件';
+      return;
+    }
+    const current = await apiJson('resources/read', { resource });
+    if (current.binary) throw new Error('不能把 Notebook 写入二进制文件。');
+    const result = await apiJson('resources/write', {
+      resource,
+      content: notebook.text || '',
+      expectedVersion: current.version,
+      baseSha256: await sha256Text(current.content || ''),
+    });
+    state.status = `Notebook 已安全写回 · ${result.version ? '版本已更新' : '已完成'}`;
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+    state.status = error.status === 409 ? '导出遇到外部修改，未覆盖远端内容' : 'Notebook 导出失败';
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+function copilotToNotebook(messageId) {
+  const message = state.copilot.messages.find((item) => item.id === messageId && item.role === 'assistant');
+  const notebook = activeNotebook();
+  if (!message || !notebook) return;
+  notebook.text = `${notebook.text || ''}\n\n### Copilot 回复\n${message.content}\n`;
+  notebook.updatedAt = Date.now();
+  syncNotebookText();
+  saveNotebook();
+  state.rightView = 'notebook';
+  state.status = '已将 Copilot 回复加入 Notebook';
+  render();
+}
+
+function buildCopilotRequest(promptOverride = '') {
+  const prompt = String(promptOverride || state.copilot.prompt || '').trim();
+  const file = state.copilot.includeFile && state.current && !state.current.binary
+    ? { name: state.current.name, language: state.current.language, content: clipContext(state.current.content, state.copilot.contextLimit || MAX_COPILOT_CONTEXT_CHARS) }
+    : null;
+  const selection = state.copilot.includeSelection ? selectionForCopilot() : null;
+  return {
+    prompt,
+    file,
+    selection,
+    history: state.copilot.messages.slice(-12).map((message) => ({ role: message.role, content: message.content })),
+  };
+}
+
+function copilotTaskPrompt(task) {
+  const prompts = {
+    summary: '请总结我提供的上下文，先给出一句话结论，再列出 3—5 个关键点。',
+    explain: '请解释我提供的上下文，优先说明关键概念、因果关系和容易误解的地方。',
+    knowledge: '请从我提供的上下文中提取可复习的知识点，使用清晰的 Markdown 列表。',
+    review: '请审阅我提供的 Markdown 内容，指出最值得修改的结构、事实或表达问题；如果提出修改，请给出理由。',
+  };
+  return prompts[task] || '';
+}
+
+async function askCopilot(promptOverride = '', preset = null) {
+  const request = preset || buildCopilotRequest(promptOverride);
+  if (!request.prompt) {
+    state.copilot.error = '请先输入问题，或点击一个快捷任务。';
+    render();
+    return;
+  }
+  if (!request.file && !request.selection) {
+    state.copilot.error = '请先勾选当前文件或选中文本作为上下文。';
+    render();
+    return;
+  }
+  state.copilot.busy = true;
+  state.copilot.error = '';
+  state.copilot.pendingPrompt = request.prompt;
+  state.copilot.lastRequest = request;
+  state.copilot.prompt = '';
+  render();
+  try {
+    const result = await apiJson('copilot/ask', request);
+    state.copilot.messages.push(
+      { id: annotationId(), role: 'user', content: request.prompt },
+      { id: annotationId(), role: 'assistant', content: result.text, truncated: result.truncated },
+    );
+    state.copilot.truncated = result.truncated || null;
+    saveCopilotHistory(state.annotationKey);
+  } catch (error) {
+    state.copilot.error = error instanceof Error ? error.message : String(error);
+  } finally {
+    state.copilot.busy = false;
+    state.copilot.pendingPrompt = '';
+    render();
+  }
+}
+
+function retryCopilot() {
+  if (state.copilot.lastRequest && !state.copilot.busy) askCopilot('', state.copilot.lastRequest);
+}
+
+function extractMarkdownSuggestion(text) {
+  const match = String(text || '').match(/```(?:markdown|md|text)?\s*\n([\s\S]*?)```/i);
+  return match ? match[1].replace(/^\n+|\n+$/g, '') : '';
+}
+
+function prepareCopilotApply(messageId) {
+  const message = state.copilot.messages.find((item) => item.id === messageId && item.role === 'assistant');
+  const selection = state.copilot.selection;
+  if (!message || !selection?.quote || state.current?.language !== 'markdown') {
+    state.copilot.error = '请先选择要替换的 Markdown 原文，再应用建议。';
+    render();
+    return;
+  }
+  const replacement = extractMarkdownSuggestion(message.content);
+  const start = state.current.content.indexOf(selection.quote);
+  if (!replacement) {
+    state.copilot.error = '请让 Copilot 用 Markdown 代码块返回可替换内容，再应用建议。';
+    render();
+    return;
+  }
+  if (start < 0) {
+    state.copilot.error = '当前选区包含渲染格式，无法安全定位到 Markdown 原文；请改为选择纯文本。';
+    render();
+    return;
+  }
+  state.copilot.suggestion = {
+    messageId,
+    original: selection.quote,
+    replacement,
+    start,
+  };
+  state.copilot.error = '';
+  render();
+}
+
+async function confirmCopilotApply() {
+  const suggestion = state.copilot.suggestion;
+  const current = state.current;
+  if (!suggestion || !current || current.language !== 'markdown') return;
+  const actual = current.content.slice(suggestion.start, suggestion.start + suggestion.original.length);
+  if (actual !== suggestion.original) {
+    state.copilot.error = '原文已经发生变化，已取消应用；请重新选择文本。';
+    state.copilot.suggestion = null;
+    render();
+    return;
+  }
+  await destroyMarkdownEditor();
+  current.draftContent = `${current.content.slice(0, suggestion.start)}${suggestion.replacement}${current.content.slice(suggestion.start + suggestion.original.length)}`;
+  current.draftDirty = current.draftContent !== current.content;
+  current.conflict = null;
+  state.editing = true;
+  state.copilot.suggestion = null;
+  state.status = '已应用 Copilot 建议，正在自动保存…';
+  suppressEditorRemount = true;
+  render();
+  try {
+    await mountCurrentEditor();
+    scheduleAutoSave();
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+  }
+}
+
+function captureViewerSelection(viewer) {
+  const article = viewer?.querySelector('.markdown-body');
+  const selection = window.getSelection?.();
+  if (!article || !selection || selection.isCollapsed || !selection.rangeCount) return;
+  if (!article.contains(selection.anchorNode) || !article.contains(selection.focusNode)) return;
+  const anchor = selectionAnchor(article, selection);
+  if (!anchor) return;
+  state.selection = anchor;
+  state.copilot.selection = anchor;
+  render();
+}
+
 function renderReaderPane() {
   if (!state.current) {
     return `<div class="welcome-pane">
@@ -891,7 +1498,7 @@ function renderReaderPane() {
     const editorMarkup = current.language === 'markdown'
       ? '<div id="markdown-editor" class="markdown-editor" aria-label="Markdown 所见即所得编辑器"></div>'
       : `<textarea id="source-editor" class="source-editor" spellcheck="false" aria-label="${language} 源码编辑器"></textarea>`;
-    return `<div class="reader-modebar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div></div>
+    return `<div class="reader-modebar"><span id="editor-status" class="editor-status">编辑中 · 未修改</span><div class="reader-mode-actions"><button class="button ghost" data-action="read-mode">只读</button><button class="button primary" disabled>编辑</button>${current.saveFailed ? '<button class="button ghost" data-action="retry-save">重试保存</button><button class="button danger" data-action="discard-draft">放弃草稿</button>' : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}</div></div>
     <div class="editor-scroll">${editorMarkup}</div>`;
   }
 
@@ -906,26 +1513,77 @@ function renderReaderPane() {
     ? '<span class="editor-status">文件超过 512 KB，仅只读预览</span>'
     : '';
   const canEdit = !current.binary && (current.language !== 'markdown' || current.editable);
+  const selection = state.selection;
+  const selectionTools = current.language === 'markdown' && selection?.quote
+    ? `<div class="selection-toolbar"><span class="selection-toolbar-label">已选 ${escapeHtml(selection.quote.slice(0, 46))}${selection.quote.length > 46 ? '…' : ''}</span><button class="button tiny" data-action="add-comment">批注</button><button class="button tiny" data-action="add-highlight">高亮</button><button class="button tiny" data-action="add-underline">下划线</button><button class="button tiny" data-action="selection-to-notebook">加入笔记</button><button class="button tiny ghost" data-action="clear-selection">取消</button></div>`
+    : '';
 
   return `<div class="reader-modebar"><div class="reader-mode-actions"><button class="button primary" disabled>只读</button>${canEdit ? '<button class="button ghost" data-action="edit-file">编辑</button>' : ''}${current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '查看源码' : '安全预览'}</button>` : ''}${current.undo ? '<button class="button ghost" data-action="undo-write">回撤</button>' : ''}${editorAction}</div></div>
-  <div class="viewer-scroll">${body}</div>`;
+  ${selectionTools}<div class="viewer-scroll">${body}</div>`;
 }
 
 function renderCopilot() {
   if (state.rightCollapsed) {
     return '<aside class="copilot-panel is-collapsed"><button class="panel-collapse" data-action="toggle-right" title="展开阅读助手">‹</button></aside>';
   }
-  const notebook = state.rightView === 'notebook';
+  const titles = {
+    copilot: ['✦', 'Copilot', '阅读助手'],
+    annotations: ['❖', '批注', '审阅标记'],
+    notebook: ['▤', 'Notebook', '阅读笔记'],
+  };
+  const [orb, title, subtitle] = titles[state.rightView] || titles.copilot;
   return `<aside class="copilot-panel">
-    <div class="copilot-heading"><span class="copilot-orb">${notebook ? '▤' : '✦'}</span><div><h2>${notebook ? 'Notebook' : 'Copilot'}</h2><p>${notebook ? '阅读笔记' : '阅读助手'}</p></div><div class="copilot-switcher"><button class="panel-view-button ${notebook ? '' : 'active'}" data-action="show-copilot">Copilot</button><button class="panel-view-button ${notebook ? 'active' : ''}" data-action="show-notebook">笔记本</button></div><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
-    ${notebook ? `<div class="notebook-wrap"><textarea class="notebook-editor" data-notebook placeholder="记录阅读心得、重要知识点或待办……">${escapeHtml(state.notebookText)}</textarea><div class="notebook-footer">自动保存 · 独立于当前文件</div></div>` : `<div class="copilot-empty">
-      <div class="copilot-spark">✧</div>
-      <h3>先读，再问</h3>
-      <p>下一阶段将支持总结当前文件、解释选中内容，以及提取公式和关键概念。</p>
-    </div>
-    <div class="copilot-rule"></div>
-    <div class="copilot-note"><span>⌁</span> AI 上下文将由你明确选择，不默认读取整个项目。</div>`}
+    <div class="copilot-heading"><span class="copilot-orb">${orb}</span><div><h2>${title}</h2><p>${subtitle}</p></div><div class="copilot-switcher"><button class="panel-view-button ${state.rightView === 'copilot' ? 'active' : ''}" data-action="show-copilot">Copilot</button><button class="panel-view-button ${state.rightView === 'annotations' ? 'active' : ''}" data-action="show-annotations">批注</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook">笔记本</button></div><button class="panel-collapse" data-action="toggle-right" title="折叠阅读助手">›</button></div>
+    ${state.rightView === 'notebook' ? renderNotebookPanel() : state.rightView === 'annotations' ? renderAnnotationsPanel() : renderCopilotPanel()}
   </aside>`;
+}
+
+function renderCopilotPanel() {
+  const copilot = state.copilot;
+  const messages = copilot.messages.map((message) => `<div class="copilot-message ${message.role}">
+    <div class="copilot-message-label">${message.role === 'assistant' ? 'Copilot' : '你'}</div>
+    <div class="copilot-message-body">${message.role === 'assistant' ? renderMarkdown(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
+    ${message.role === 'assistant' ? `<div class="copilot-message-actions"><button class="button tiny" data-action="prepare-copilot-apply" data-message-id="${escapeHtml(message.id || '')}">应用修改建议</button><button class="button tiny" data-action="copilot-to-notebook" data-message-id="${escapeHtml(message.id || '')}">加入笔记</button></div>` : ''}
+  </div>`).join('');
+  const contextSelection = copilot.selection?.quote || '';
+  const suggestion = copilot.suggestion;
+  return `<div class="copilot-content">
+    <div class="copilot-context-box"><div class="copilot-section-label">本轮上下文（由你选择）</div><label class="context-toggle"><input type="checkbox" data-context-file ${copilot.includeFile ? 'checked' : ''} ${state.current && !state.current.binary ? '' : 'disabled'}> 当前文件 <span>${state.current ? escapeHtml(state.current.name) : '未打开文件'}</span></label><label class="context-toggle"><input type="checkbox" data-context-selection ${copilot.includeSelection ? 'checked' : ''} ${contextSelection ? '' : 'disabled'}> 选中文本 <span>${contextSelection ? escapeHtml(contextSelection.slice(0, 34)) : '尚未选择'}</span></label><label class="context-limit">上下文长度 <select data-context-limit><option value="8000" ${copilot.contextLimit === 8000 ? 'selected' : ''}>短 · 8k</option><option value="16000" ${copilot.contextLimit === 16000 ? 'selected' : ''}>中 · 16k</option><option value="24000" ${copilot.contextLimit === 24000 ? 'selected' : ''}>长 · 24k</option></select></label></div>
+    <div class="copilot-quick-actions"><button class="button tiny" data-action="copilot-task" data-copilot-task="summary">总结</button><button class="button tiny" data-action="copilot-task" data-copilot-task="explain">解释</button><button class="button tiny" data-action="copilot-task" data-copilot-task="knowledge">知识点</button><button class="button tiny" data-action="copilot-task" data-copilot-task="review">审阅</button></div>
+    <div class="copilot-scroll">${messages || `<div class="copilot-empty compact"><div class="copilot-spark">✧</div><h3>先读，再问</h3><p>勾选当前文件或选中文本，再输入问题。Copilot 不会默认读取整个项目。</p></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
+    ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
+    ${copilot.truncated ? `<div class="copilot-note compact"><span>⌁</span>上下文较长，已自动保留开头和结尾。</div>` : ''}
+    ${suggestion ? `<div class="copilot-apply-card"><strong>确认应用修改建议？</strong><div class="copilot-apply-diff"><div><span>原文</span><pre>${escapeHtml(suggestion.original)}</pre></div><div><span>替换为</span><pre>${escapeHtml(suggestion.replacement)}</pre></div></div><div class="copilot-apply-actions"><button class="button ghost" data-action="cancel-copilot-apply">取消</button><button class="button primary" data-action="confirm-copilot-apply">确认并编辑</button></div></div>` : ''}
+    <div class="copilot-composer"><textarea data-copilot-prompt placeholder="问问这份内容……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="button primary" data-action="copilot-submit" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '生成中…' : '发送'}</button></div>
+    <div class="copilot-note"><span>⌁</span> 仅发送你勾选的上下文；模型不可用时会保留本地阅读与记录能力。</div>
+  </div>`;
+}
+
+function renderAnnotationsPanel() {
+  const composer = state.annotationComposer
+    ? `<div class="annotation-composer"><div class="annotation-card-title">给“${escapeHtml(state.annotationComposer.selection.quote.slice(0, 46))}${state.annotationComposer.selection.quote.length > 46 ? '…' : ''}”添加批注</div><textarea data-annotation-composer placeholder="写下你的理解、疑问或修改理由……"></textarea><div class="annotation-actions"><button class="button ghost" data-action="cancel-annotation">取消</button><button class="button primary" data-action="save-annotation">保存批注</button></div></div>`
+    : '';
+  const list = state.annotations.slice().sort((a, b) => b.createdAt - a.createdAt).map((annotation) => {
+    const editing = state.annotationEditorId === annotation.id;
+    const replying = state.annotationReplyId === annotation.id;
+    const kindLabel = annotation.kind === 'highlight' ? '高亮' : annotation.kind === 'underline' ? '下划线' : '批注';
+    const located = state.current?.content?.includes(annotation.quote);
+    return `<article class="annotation-card ${annotation.resolved ? 'resolved' : ''} ${state.focusAnnotationId === annotation.id ? 'focused' : ''}">
+      <button class="annotation-quote" data-action="focus-annotation" data-annotation-id="${escapeHtml(annotation.id)}">${escapeHtml(annotation.quote)}</button>
+      <div class="annotation-meta"><span>${kindLabel}</span><span>${located ? '已定位' : '原文已变化'}</span><span>${annotation.resolved ? '已完成' : '进行中'}</span></div>
+      ${editing ? `<textarea data-annotation-edit="${escapeHtml(annotation.id)}">${escapeHtml(annotation.note)}</textarea>` : (annotation.note ? `<p class="annotation-note">${escapeHtml(annotation.note)}</p>` : '<p class="annotation-note muted">未填写文字批注</p>')}
+      ${annotation.replies.length ? `<div class="annotation-replies">${annotation.replies.map((reply) => `<div><span>↳</span>${escapeHtml(reply.text)}</div>`).join('')}</div>` : ''}
+      ${replying ? `<textarea data-annotation-reply="${escapeHtml(annotation.id)}" placeholder="回复这条批注……"></textarea>` : ''}
+      <div class="annotation-actions"><button class="button tiny" data-action="focus-annotation" data-annotation-id="${escapeHtml(annotation.id)}">定位原文</button><button class="button tiny" data-action="toggle-annotation-resolved" data-annotation-id="${escapeHtml(annotation.id)}">${annotation.resolved ? '重新打开' : '完成'}</button><button class="button tiny" data-action="annotation-to-notebook" data-annotation-id="${escapeHtml(annotation.id)}">加入笔记</button>${editing ? `<button class="button tiny" data-action="save-annotation-edit" data-annotation-id="${escapeHtml(annotation.id)}">保存</button>` : `<button class="button tiny" data-action="edit-annotation" data-annotation-id="${escapeHtml(annotation.id)}">编辑</button>`}${replying ? `<button class="button tiny" data-action="add-annotation-reply" data-annotation-id="${escapeHtml(annotation.id)}">回复</button>` : `<button class="button tiny" data-action="reply-annotation" data-annotation-id="${escapeHtml(annotation.id)}">回复</button>`}<button class="button tiny danger" data-action="delete-annotation" data-annotation-id="${escapeHtml(annotation.id)}">删除</button></div>
+    </article>`;
+  }).join('');
+  return `<div class="annotations-content"><div class="annotation-panel-toolbar"><span>${state.annotations.length} 条标记</span><button class="button tiny" data-action="undo-annotation" ${state.annotationUndo ? '' : 'disabled'}>撤销上一步</button></div>${composer}${list || `<div class="copilot-empty compact"><div class="copilot-spark">❖</div><h3>还没有批注</h3><p>在 Markdown 正文中选中一段文字，即可添加批注、高亮或下划线。</p></div>`}<div class="copilot-note"><span>⌁</span>批注保存在本机浏览器中，原始 Markdown 不会被偷偷改写。</div></div>`;
+}
+
+function renderNotebookPanel() {
+  const notebook = activeNotebook();
+  if (!notebook) return '<div class="copilot-empty"><p>尚未创建 Notebook。</p></div>';
+  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="新建笔记">＋</button></div><div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记标题"><button class="button tiny" data-action="toggle-notebook-preview">${state.notebookPreview ? '编辑' : '预览'}</button><button class="button tiny" data-action="download-notebook">导出</button><button class="button tiny" data-action="export-notebook-resource">写回文件</button><button class="button tiny danger" data-action="delete-notebook">删除</button></div><div class="notebook-ref-actions"><button class="button tiny" data-action="notebook-add-reference">${state.selection?.quote ? '引用选区' : '引用当前文件'}</button></div>${state.notebookPreview ? `<article class="notebook-preview markdown-body">${renderMarkdown(notebook.text)}</article>` : `<textarea class="notebook-editor" data-notebook placeholder="记录阅读心得、重要知识点或待办……">${escapeHtml(state.notebookText)}</textarea>`}<div class="notebook-footer">本机自动保存 · ${state.notebooks.length} 份笔记 · 原始文件不变</div></div>`;
 }
 
 let resizeCleanup = null;
@@ -958,9 +1616,14 @@ function beginResize(side, event) {
 
 function render() {
   if (!root) return;
+  const remountSession = !suppressEditorRemount && !state.busy && state.editing && state.current && (
+    activeMarkdownEditor || pendingMarkdownEditor || root.querySelector('#source-editor') || root.querySelector('#markdown-editor .ProseMirror')
+  ) ? state.current : null;
+  suppressEditorRemount = false;
+  const editorCleanup = remountSession ? destroyMarkdownEditor() : null;
   const previousTreeScroll = root.querySelector('.tree-scroll')?.scrollTop || 0;
   const nodeIndex = new Map();
-  const tree = state.rootNode ? renderTree() : renderTree();
+  const tree = renderTree();
   // renderTreeNode populates its local index during markup creation; rebuild the lookup here.
   const collect = (node) => {
     if (!node) return;
@@ -981,8 +1644,13 @@ function render() {
       <div class="panel-resizer" data-resizer="right" role="separator" aria-label="调整阅读助手宽度"></div>
       ${renderCopilot()}
     </div>
-    <footer class="bottom-bar"><span>本地优先 · ResourceIO</span><span>编辑自动保存 · 可回撤上一步</span></footer>
+    <footer class="bottom-bar"><span class="status${state.error ? ' error' : ''}" aria-live="polite">${escapeHtml(state.error || state.status)}</span><span>本地优先 · ResourceIO · 编辑自动保存 · 可回撤</span></footer>
   </div>`;
+
+  const article = root.querySelector('.viewer-scroll .markdown-body');
+  if (article && state.current?.language === 'markdown') {
+    applyAnnotationMarks(article, state.annotations);
+  }
 
   const treeScroll = root.querySelector('.tree-scroll');
   if (treeScroll) treeScroll.scrollTop = previousTreeScroll;
@@ -991,14 +1659,26 @@ function render() {
     element.addEventListener('pointerdown', (event) => beginResize(element.dataset.resizer, event));
   });
 
+  root.querySelectorAll('[data-annotation-id]').forEach((element) => {
+    element.addEventListener('click', () => focusAnnotation(element.dataset.annotationId));
+  });
+
   root.querySelectorAll('[data-action]').forEach((element) => {
     element.addEventListener('click', () => {
       const action = element.dataset.action;
       const node = nodeIndex.get(element.dataset.nodeId);
+      const annotationIdValue = element.dataset.annotationId;
       if (action === 'pick') requestTransition('重新选择文件夹', chooseFolder);
       if (action === 'refresh') requestTransition('刷新目录', refreshRoot);
       if (action === 'toggle') requestTransition(`切换到目录 ${node?.name || ''}`, () => toggleDirectory(node));
-      if (action === 'open') requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
+      if (action === 'open') {
+        if (node?.id === state.current?.node?.id) {
+          state.status = `${languageLabel(state.current.language)} · 当前文件已打开`;
+          updateFooterStatus();
+        } else {
+          requestTransition(`打开 ${node?.name || '其他文件'}`, () => openFile(node));
+        }
+      }
       if (action === 'toggle-left') {
         state.leftCollapsed = !state.leftCollapsed;
         saveLayout();
@@ -1013,6 +1693,10 @@ function render() {
         state.rightView = 'copilot';
         render();
       }
+      if (action === 'show-annotations') {
+        state.rightView = 'annotations';
+        render();
+      }
       if (action === 'show-notebook') {
         state.rightView = 'notebook';
         render();
@@ -1024,6 +1708,61 @@ function render() {
         render();
       }
       if (action === 'undo-write') undoLastWrite();
+      if (action === 'retry-save') retrySaveCurrent();
+      if (action === 'discard-draft') discardDraft();
+      if (action === 'add-comment') beginAnnotation('comment');
+      if (action === 'add-highlight') beginAnnotation('highlight');
+      if (action === 'add-underline') beginAnnotation('underline');
+      if (action === 'selection-to-notebook') appendCurrentSelectionToNotebook();
+      if (action === 'clear-selection') {
+        state.selection = null;
+        render();
+      }
+      if (action === 'save-annotation') saveAnnotationComposer();
+      if (action === 'cancel-annotation') {
+        state.annotationComposer = null;
+        state.selection = null;
+        render();
+      }
+      if (action === 'focus-annotation') focusAnnotation(annotationIdValue);
+      if (action === 'edit-annotation') {
+        state.annotationEditorId = annotationIdValue;
+        render();
+      }
+      if (action === 'save-annotation-edit') updateAnnotationNote(annotationIdValue);
+      if (action === 'reply-annotation') {
+        state.annotationReplyId = annotationIdValue;
+        render();
+      }
+      if (action === 'add-annotation-reply') addAnnotationReply(annotationIdValue);
+      if (action === 'toggle-annotation-resolved') toggleAnnotationResolved(annotationIdValue);
+      if (action === 'delete-annotation') deleteAnnotation(annotationIdValue);
+      if (action === 'undo-annotation') undoAnnotationChange();
+      if (action === 'annotation-to-notebook') annotationToNotebook(annotationIdValue);
+      if (action === 'new-notebook') createNotebookAction();
+      if (action === 'select-notebook') selectNotebook(element.dataset.notebookId);
+      if (action === 'delete-notebook') deleteActiveNotebook();
+      if (action === 'toggle-notebook-preview') {
+        state.notebookPreview = !state.notebookPreview;
+        render();
+      }
+      if (action === 'notebook-add-reference') appendCurrentSelectionToNotebook();
+      if (action === 'download-notebook') downloadNotebook();
+      if (action === 'export-notebook-resource') exportNotebookToResource();
+      if (action === 'copilot-submit') {
+        const prompt = root.querySelector('[data-copilot-prompt]')?.value || '';
+        state.copilot.prompt = prompt;
+        askCopilot(prompt);
+      }
+      if (action === 'copilot-task') askCopilot(copilotTaskPrompt(element.dataset.copilotTask));
+      if (action === 'retry-copilot') retryCopilot();
+      if (action === 'prepare-copilot-apply') prepareCopilotApply(element.dataset.messageId);
+      if (action === 'cancel-copilot-apply') {
+        state.copilot.suggestion = null;
+        render();
+      }
+      if (action === 'confirm-copilot-apply') confirmCopilotApply();
+      if (action === 'copilot-to-notebook') copilotToNotebook(element.dataset.messageId);
     });
   });
 
@@ -1035,9 +1774,41 @@ function render() {
     });
   }
 
+  const notebookTitle = root.querySelector('[data-notebook-title]');
+  if (notebookTitle) notebookTitle.addEventListener('input', updateNotebookTitle);
+
+  const copilotPrompt = root.querySelector('[data-copilot-prompt]');
+  if (copilotPrompt) {
+    copilotPrompt.addEventListener('input', () => {
+      state.copilot.prompt = copilotPrompt.value;
+    });
+    copilotPrompt.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        state.copilot.prompt = copilotPrompt.value;
+        askCopilot(copilotPrompt.value);
+      }
+    });
+  }
+
+  const contextFile = root.querySelector('[data-context-file]');
+  if (contextFile) contextFile.addEventListener('change', () => {
+    state.copilot.includeFile = contextFile.checked;
+  });
+  const contextSelection = root.querySelector('[data-context-selection]');
+  if (contextSelection) contextSelection.addEventListener('change', () => {
+    state.copilot.includeSelection = contextSelection.checked;
+  });
+  const contextLimit = root.querySelector('[data-context-limit]');
+  if (contextLimit) contextLimit.addEventListener('change', () => {
+    state.copilot.contextLimit = Number(contextLimit.value) || 16000;
+  });
+
   const viewer = root.querySelector('.viewer-scroll');
   if (viewer && state.current) {
     viewer.scrollTop = state.current.scrollTop || 0;
+    viewer.addEventListener('mouseup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
+    viewer.addEventListener('keyup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
     viewer.addEventListener('scroll', () => {
       if (!state.current) return;
       state.current.scrollTop = viewer.scrollTop;
@@ -1045,7 +1816,18 @@ function render() {
     }, { passive: true });
   }
 
-  requestAnimationFrame(() => hana.ui.resize({ height: Math.max(680, root.scrollHeight) }));
+  requestAnimationFrame(async () => {
+    hana.ui.resize({ height: Math.max(680, root.scrollHeight) });
+    if (!remountSession || !state.editing || state.current !== remountSession || state.busy) return;
+    try {
+      if (editorCleanup) await editorCleanup;
+      if (state.editing && state.current === remountSession && !state.busy) await mountCurrentEditor();
+    } catch (error) {
+      state.editing = false;
+      state.error = `编辑器加载失败：${error instanceof Error ? error.message : String(error)}`;
+      render();
+    }
+  });
 }
 
 render();

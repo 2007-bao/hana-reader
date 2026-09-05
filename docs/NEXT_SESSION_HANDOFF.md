@@ -4,103 +4,74 @@
 
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
+- 当前本地分支：`feat/complete-reader-workbench`
+- 版本目标：`v1.0.0`
 - 稳定基线：`main` / `v0.9.0`
-- 最近提交：右侧 Notebook 基础能力与后续路线文档
-- 最近发布包：`hana-reader-v0.9.0.zip`
-- 当前测试：`npm test`，14 项全部通过
-- 工作区无关目录：`knob-motion-lab/`，不要提交
+- 当前验证：`npm test`（新增批注 DOM、Copilot route、Notebook/批注存储回归后共 22 项）
+- 工作区无关目录：`knob-motion-lab/`，不要查看、修改、提交或打包
 
-## 已经完成到哪里
+## 本阶段已经完成
 
-Hana Reader 已经完成基础阅读工作台：
+### 阅读与编辑
 
-- 左侧项目文件树
-- 中间 Markdown / 常见代码阅读
-- Markdown 编辑、安全写回、冲突检测、Diff、撤销
-- 安全 HTML 预览
-- Maple Mono、蓝色语义色板和三栏布局
-- 文件树图标、父子层级线、滚动位置保持
-- 右侧 Copilot / Notebook 切换
-- Notebook 独立本地自动保存
+- 左侧项目文件树、延迟展开、常见文本/代码阅读
+- Markdown 安全渲染、GFM、任务列表、代码高亮
+- Milkdown Markdown 所见即所得编辑器
+- 多类型文本安全写回、版本冲突检测、撤销和安全 HTML 预览
+- Maple Mono、Maple 蓝色语义色板、三栏布局、文件树图标/层级线/滚动保持
 
-当前右侧 Copilot 只有界面入口，AI 尚未实际接入。
+### Copilot
 
-## 下一阶段真正要完成的功能
+- `routes/ui.js` 的 `POST /copilot/ask` 通过 `model:sample-text` 接入 Hana utility 模型
+- 前端只提交用户勾选的当前文件或选中文本
+- 总结 / 解释 / 知识点 / 审阅快捷任务
+- 文件级对话历史、失败重试、上下文 8k/16k/24k 档位和服务端截断
+- Markdown 修改建议需代码块、原文精确匹配和确认后才进入编辑器/安全自动保存
 
-### A. AI Copilot
+### Markdown 批注审阅
 
-需要完成：
+- 选区批注、高亮、下划线
+- 批注编辑、回复、完成、删除、最近一次操作撤销
+- 侧栏列表、定位原文、文本锚点恢复
+- 使用浏览器本地存储，不改写普通 Markdown 原文
 
-- 接入 Hana AI 对话能力
-- 读取用户明确选择的当前文件或选中文本上下文
-- 总结、解释、提取知识点
-- 生成修改建议并安全应用回 Markdown
-- 对话历史、错误处理、重试和上下文长度控制
+### Notebook
 
-### B. Markdown 扩展批注与审阅
+- 多份本地 Notebook、标题编辑、切换、新建、删除
+- 当前文件/选区引用
+- 从批注或 Copilot 回复加入笔记
+- Markdown 预览、下载导出和带版本哈希的安全写回
 
-需要完成：
+## 当前明确限制
 
-- 选中文本后的批注入口
-- 批注、高亮、下划线等标记
-- 批注编辑、删除、回复和完成状态
-- 标记与原文位置绑定
-- 重新打开文件后恢复
-- 批注侧栏与原文定位
-- 批注写回、撤销和冲突检测
-- 保持普通 Markdown 文件兼容
+1. Copilot 依赖 Hana 宿主的 `model.sample` 能力和已配置的 utility 文本模型；不可用时应给出降级提示。
+2. Copilot 自动应用只处理能在当前 Markdown 原文中精确找到的纯文本选区；含复杂渲染格式的选区会拒绝自动覆盖。
+3. 批注存于当前浏览器本地存储，尚未做跨设备 sidecar 同步。
+4. Notebook “写回文件”目前选择已有资源并执行安全覆盖，不负责创建新文件。
+5. 全文搜索、跨文件问答、Git 状态、多标签等是候选能力，不要在本阶段顺手扩展。
 
-### C. Notebook 增强
+## 下一步只做这些
 
-基础文本 Notebook 已完成，后续可增加：
-
-- 关联当前文件和选中文本
-- 从批注或 AI 回复生成笔记
-- Markdown 预览
-- 多份笔记、导出和安全写回
-
-## 新会话建议阅读顺序
-
-1. `README.md`
-2. `docs/NEXT_SESSION_HANDOFF.md`（本文件）
-3. `docs/ROADMAP.md`
-4. `COLLABORATION.md`
-5. `src/panel.js`
-6. `assets/panel.css`
-7. `src/markdown-engine.js`
-8. `src/markdown-editor.js`
-9. `routes/ui.js`
-10. 与任务相关的 `tests/`
+- 在 Hana dev loop 中 reload 本地插件，检查实际 `model:sample-text` 返回形状与 UI 交互。
+- 重点手测：打开 Markdown → 选择文本 → 批注/高亮/下划线 → 关闭再打开恢复；Copilot 勾选上下文 → 失败重试 → 代码块建议应用；Notebook 引用/预览/导出/安全写回。
+- 如果宿主实际模型返回结构不同，只修改 `routes/ui.js` 的 `extractModelText()` 兼容层，不要把 API Key 或宿主路径放进前端。
+- 通过 `npm test` 后检查 `git diff --stat`，确认 diff 不包含 `knob-motion-lab/`。
+- 未获负责人明确授权前，不要 push、建 PR、合并或发布 GitHub 标签。
 
 ## 关键实现入口
 
-- `src/panel.js`
-  - `state`：全局界面状态
-  - `renderCopilot()`：右侧 Copilot / Notebook
-  - `saveNotebook()`：Notebook 本地自动保存
-  - `renderTreeNode()`：文件树节点和图标
-  - `render()`：页面重建与文件树滚动恢复
-- `assets/panel.css`
-  - `--maple-*`：Maple 色板
-  - Markdown 标题层级配色
-  - 代码默认深色配色
-  - 引用、代码块银河蓝竖线
-  - 文件树层级线和分组间距
-- `src/markdown-engine.js`
-  - Markdown 安全渲染
-  - 标题编号 `.heading-number`
-  - 后续批注扩展的主要入口
-- `routes/ui.js`
-  - ResourceIO 读取、写回和版本冲突保护
+- `src/panel.js`：页面状态、文件树、编辑器、Copilot、批注、Notebook 和事件绑定
+- `src/annotation-engine.js`：文本选区锚点、恢复定位和 DOM 标记
+- `src/annotation-store.js`：本地批注存储与稳定资源键
+- `src/notebook-store.js`：多份 Notebook 存储、迁移和引用拼接
+- `assets/panel.css`：Maple 视觉、Copilot/批注/Notebook 交互样式
+- `routes/ui.js`：ResourceIO 安全读写与 Copilot 模型 route
+- `tests/`：manifest、渲染、编辑器、写回、Copilot route 和本地状态回归
 
 ## 开发纪律
 
-- 先看当前 `git branch --show-current` 和 `git status`。
-- 不要把 `knob-motion-lab/` 纳入提交。
-- 不要覆盖或破坏当前 Maple 标题色阶：银河蓝 → 清晨蓝 → 溪水蓝 → 冰蓝 → 极浅青蓝。
-- 不要恢复海蓝色作为主要标题色。
-- 代码块大部分保持深色，仅保留少量语义高亮。
-- 引用和代码块左侧竖线保持银河蓝。
-- 独立功能使用 `feat/` 分支，修复使用 `fix/` 分支。
-- 修改后运行 `npm test`；14 项全部通过后再提交和发布。
-- 先实现最小可验收版本，再扩展功能，不要一次性引入重量级编辑器或复杂依赖。
+- 先确认 `git branch --show-current` 和 `git status`。
+- 不要纳入 `knob-motion-lab/`。
+- 修改后运行 `npm test`，不要只运行 build。
+- 不要破坏标题色阶：银河蓝 → 清晨蓝 → 溪水蓝 → 冰蓝 → 极浅青蓝。
+- 不提交 API Key、Cookie、个人文件、会话导出或真实项目内容。

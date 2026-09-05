@@ -28,8 +28,8 @@
   --reader-middle-bg: color-mix(in srgb, #ffffff 88%, var(--reader-bg));
   --reader-side-bg: var(--reader-middle-bg);
   --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
-  --maple-line-height-normal: 1.8;
-  --maple-line-height-tight: 1.5;
+  --maple-line-height-normal: 1.45;
+  --maple-line-height-tight: 1.35;
   --reader-code-bg: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-middle-bg));
   --maple-red: hsl(0 45% 53%);
   --maple-orange: hsl(32 70% 46%);
@@ -1416,7 +1416,7 @@ body {
 .markdown-body,
 .markdown-editor .ProseMirror {
   font-size: 17px;
-  line-height: 1.8;
+  line-height: var(--maple-line-height-normal);
 }
 
 .markdown-body h1,
@@ -1493,7 +1493,7 @@ body {
   margin: 0.65em 0;
   padding: 14px 16px;
   font-size: 15px;
-  line-height: 1.65;
+  line-height: var(--maple-line-height-tight);
 }
 
 .markdown-body code {
@@ -1502,7 +1502,15 @@ body {
 
 .source-editor {
   font-size: 15px;
-  line-height: 1.65;
+  line-height: var(--maple-line-height-tight);
+}
+
+.token-number,
+.code-viewer .hljs-number,
+.code-viewer .hljs-literal,
+.markdown-body .hljs-number,
+.markdown-body .hljs-literal {
+  font-family: var(--reader-ui-font);
 }
 
 @media (max-width: 1020px) {

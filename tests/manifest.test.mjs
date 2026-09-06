@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.7.3 reader page with guarded resource access', async () => {
+test('manifest declares the v1.7.4 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.7.3');
+  assert.equal(manifest.version, '1.7.4');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -79,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.7\.3'/);
+  assert.match(route, /ASSET_REVISION = '1\.7\.4'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.3'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.4'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -190,6 +190,7 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /data-action="show-ai"/);
   assert.match(panel, /data-action="show-notebook"/);
   assert.match(panel, /assistant-collapse/);
+  assert.match(panel, /side-collapse-control/);
   assert.match(panel, /file-panel-expand/);
   assert.match(panel, /data-action="toggle-left"/);
   assert.match(panel, /file-panel-header\.svg/);
@@ -235,7 +236,7 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.collapse-waves-left\.is-entering/);
   assert.match(css, /\.collapse-waves-right\.is-entering/);
   assert.match(css, /grid-template-columns: 96px 0/);
-  assert.match(css, /right: 3px/);
+  assert.match(css, /right: 4px/);
   assert.match(css, /left: 3px/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /animation: wave/);
@@ -263,6 +264,10 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /transform: translateY\(-1px\)/);
   assert.match(css, /\.assistant-switcher > \.assistant-collapse/);
   assert.match(css, /flex: 0 0 30px/);
+  assert.match(css, /\.side-collapse-control/);
+  assert.match(css, /top: 8px/);
+  assert.match(css, /right: 4px/);
+  assert.match(css, /left: 4px/);
   assert.match(css, /background: inherit/);
   assert.match(css, /padding: 22px 14px 6px/);
   assert.match(css, /rgba\(215, 230, 255, 0\.32\)/);

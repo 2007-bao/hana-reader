@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.7.3';
+const PLUGIN_VERSION = '1.7.4';
 const COLLAPSED_PANEL_WIDTH = 96;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -1803,10 +1803,10 @@ function renderReaderPane() {
 
 function renderCopilot() {
   if (state.rightCollapsed) {
-    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></aside>`;
+    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse side-collapse-control" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></aside>`;
   }
   return `<aside class="copilot-panel">
-    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse assistant-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
+    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse side-collapse-control assistant-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
     ${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}
   </aside>`;
 }
@@ -1966,8 +1966,8 @@ function render() {
   const workspaceElement = workspaceBody.querySelector('.workspace');
   const workspaceMarkup = `
       <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
-        <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.svg'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : `<button class="panel-collapse" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">${renderCollapseIcon()}</button>`}</div></div>
-        ${state.leftCollapsed ? `${renderCollapseWaves('left')}<button class="panel-collapse file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树">${renderCollapseIcon()}</button>` : ''}
+        <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.svg'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : `<button class="panel-collapse side-collapse-control" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">${renderCollapseIcon()}</button>`}</div></div>
+        ${state.leftCollapsed ? `${renderCollapseWaves('left')}<button class="panel-collapse side-collapse-control file-panel-expand" data-action="toggle-left" title="展开文件树" aria-label="展开文件树">${renderCollapseIcon()}</button>` : ''}
         <div class="tree-scroll">${tree}</div>
       </aside>
       <div class="panel-resizer" data-resizer="left" role="separator" aria-label="调整文件树宽度"></div>

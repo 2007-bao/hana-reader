@@ -2839,8 +2839,8 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 }
 
 .file-panel-expand {
-  top: 7px;
-  right: 3px;
+  top: 8px;
+  right: 4px;
   left: auto;
 }
 
@@ -2864,7 +2864,8 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .copilot-panel.is-collapsed > .panel-collapse {
   position: absolute;
   top: 8px;
-  left: 3px;
+  right: auto;
+  left: 4px;
   z-index: 5;
 }
 
@@ -3328,10 +3329,17 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   border-radius: 6px;
 }
 
+.side-collapse-control {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  line-height: 0;
+}
+
 .assistant-switcher > .assistant-collapse {
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   margin: 0 2px 0 0;
   padding: 0;
   border: 0;

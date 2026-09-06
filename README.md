@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.7.2` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v1.7.3` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -16,6 +16,12 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 - 高亮、划线和擦除直接作用于正文，不把阅读内容挪到侧栏。
 
 所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
+
+## v1.7.3 本轮完成：回归中性侧栏与克制控件
+
+- 左右侧栏恢复原来的浅灰中性色，阅读区继续保留白底与淡蓝色光晕。
+- AI 辅助与 Notebook 的顶部切换条使用同一尺寸、同一背景和同一激活样式，移除过强散光。
+- 左侧文件栏顶端内容整体下移约 6px，但不增加顶栏总高度。
 
 ## v1.7.2 本轮完成：统一右侧栏激活状态
 
@@ -177,4 +183,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.7.2`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.7.3`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

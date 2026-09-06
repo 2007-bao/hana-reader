@@ -26,8 +26,8 @@
   --reader-accent-soft: rgba(107, 146, 248, 0.14);
   --reader-shadow: 0 16px 40px rgba(105, 145, 232, 0.1);
   --reader-middle-bg: #ffffff;
-  --reader-side-bg: #f8fbff;
-  --reader-divider: rgba(111, 145, 224, 0.18);
+  --reader-side-bg: #f7f7f5;
+  --reader-divider: rgba(84, 92, 105, 0.14);
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
   --reader-code-bg: #f5f6f7;
@@ -3246,7 +3246,12 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 .file-panel,
 .copilot-panel {
-  background: #f9fbff;
+  background: var(--reader-side-bg);
+}
+
+.copilot-content,
+.notebook-wrap {
+  background: inherit;
 }
 
 .reader-surface .markdown-body::selection,
@@ -3308,12 +3313,15 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 }
 
 .assistant-switcher {
+  height: 42px;
+  min-height: 42px;
   gap: 4px;
-  border-color: var(--reader-control-border);
-  border-radius: 8px;
+  margin-top: 12px;
+  border-color: rgba(84, 92, 105, 0.14);
+  border-radius: 7px;
   padding: 4px;
-  background: var(--reader-control-bg);
-  box-shadow: 0 7px 20px var(--reader-control-glow);
+  background: inherit;
+  box-shadow: none;
 }
 
 .assistant-switcher .panel-collapse {
@@ -3340,9 +3348,15 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 }
 
 .assistant-switcher .panel-view-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 0;
   border-radius: 6px;
   padding: 7px 8px;
   color: var(--reader-muted);
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
 .assistant-switcher .panel-view-button:hover {
@@ -3352,10 +3366,10 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 .assistant-switcher .panel-view-button.active {
   color: var(--reader-control-accent);
-  border-color: var(--reader-control-active-border);
-  background: var(--reader-control-active);
-  box-shadow: 0 4px 12px var(--reader-control-glow);
-  transform: translateY(-1px) scale(1.02);
+  border-color: rgba(91, 128, 239, 0.26);
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(60, 70, 90, 0.08);
+  transform: translateY(-1px);
 }
 
 .notebook-tab {
@@ -3423,6 +3437,14 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .notebook-editor:focus {
   border-color: var(--reader-control-active-border);
   box-shadow: 0 0 0 3px var(--reader-control-glow);
+}
+
+.file-panel > .panel-heading {
+  padding: 22px 14px 6px;
+}
+
+.copilot-composer {
+  background: inherit;
 }
 
 body[data-hana-theme="dark"] .reader-app {

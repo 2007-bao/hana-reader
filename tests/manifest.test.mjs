@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.7.0 reader page with guarded resource access', async () => {
+test('manifest declares the v1.7.1 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.7.0');
+  assert.equal(manifest.version, '1.7.1');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -79,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.7\.0'/);
+  assert.match(route, /ASSET_REVISION = '1\.7\.1'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.1'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -256,7 +256,11 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.annotation-comment/);
   assert.match(css, /--reader-scroll-thumb/);
   assert.match(css, /--reader-middle-bg: #ffffff/);
-  assert.match(css, /--reader-side-bg: #f7f7f5/);
+  assert.match(css, /--reader-side-bg: #f8fbff/);
+  assert.match(css, /--reader-selection: rgba\(160, 194, 255, 0\.32\)/);
+  assert.match(css, /height: 26px/);
+  assert.match(css, /translateY\(-1px\) scale\(1\.02\)/);
+  assert.match(css, /rgba\(215, 230, 255, 0\.32\)/);
   assert.match(css, /\.notebook-wrap \{/);
   assert.match(css, /\.markdown-body \.markdown-code \{/);
   assert.match(css, /\.heading-number[\s\S]*font-family: inherit/);

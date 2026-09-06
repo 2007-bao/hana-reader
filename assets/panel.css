@@ -16,24 +16,33 @@
 
 :root {
   color-scheme: light dark;
-  --reader-bg: var(--bg, #f4f8ff);
-  --reader-card: var(--bg-card, #ffffff);
-  --reader-soft: var(--bg-secondary, rgba(47, 115, 230, 0.08));
-  --reader-border: var(--border, rgba(48, 78, 126, 0.16));
-  --reader-text: var(--text, #202b3d);
-  --reader-muted: var(--text-secondary, #71809a);
-  --reader-accent: var(--accent, #2f73e6);
-  --reader-accent-soft: rgba(47, 115, 230, 0.14);
-  --reader-shadow: 0 16px 40px rgba(45, 60, 70, 0.08);
+  --reader-bg: #ffffff;
+  --reader-card: #ffffff;
+  --reader-soft: rgba(101, 139, 236, 0.08);
+  --reader-border: rgba(104, 134, 208, 0.17);
+  --reader-text: #18233d;
+  --reader-muted: #6d7b97;
+  --reader-accent: #5b80ef;
+  --reader-accent-soft: rgba(107, 146, 248, 0.14);
+  --reader-shadow: 0 16px 40px rgba(105, 145, 232, 0.1);
   --reader-middle-bg: #ffffff;
-  --reader-side-bg: #f7f7f5;
-  --reader-divider: color-mix(in srgb, var(--reader-accent) 24%, var(--reader-border));
+  --reader-side-bg: #f8fbff;
+  --reader-divider: rgba(111, 145, 224, 0.18);
   --maple-line-height-normal: 1.45;
   --maple-line-height-tight: 1.35;
   --reader-code-bg: #f5f6f7;
   --reader-heading: #20242a;
   --reader-scroll-thumb: #9aa1aa;
   --reader-reading-bg: #ffffff;
+  --reader-control-bg: rgba(255, 255, 255, 0.92);
+  --reader-control-hover: rgba(241, 247, 255, 0.98);
+  --reader-control-active: #ffffff;
+  --reader-control-border: rgba(104, 142, 230, 0.22);
+  --reader-control-active-border: rgba(91, 128, 239, 0.38);
+  --reader-control-accent: #5278ea;
+  --reader-control-glow: rgba(126, 162, 246, 0.16);
+  --reader-selection: rgba(160, 194, 255, 0.32);
+  --reader-annotation: rgba(143, 181, 255, 0.46);
   --maple-morning: #9bc9ff;
   --maple-aurora: #59d2e5;
   --maple-ice: #73dff0;
@@ -63,8 +72,25 @@
 }
 
 body[data-hana-theme="dark"] {
-  --reader-accent: var(--accent, #72a7ff);
-  --reader-accent-soft: rgba(114, 167, 255, 0.2);
+  --reader-bg: #161c28;
+  --reader-card: #202938;
+  --reader-soft: rgba(126, 163, 244, 0.14);
+  --reader-border: rgba(155, 184, 255, 0.22);
+  --reader-text: #e7eeff;
+  --reader-muted: #aab8d2;
+  --reader-accent: #8fb2ff;
+  --reader-accent-soft: rgba(143, 178, 255, 0.2);
+  --reader-shadow: 0 16px 40px rgba(4, 11, 25, 0.28);
+  --reader-divider: rgba(155, 184, 255, 0.22);
+  --reader-control-bg: rgba(31, 41, 57, 0.94);
+  --reader-control-hover: rgba(94, 132, 213, 0.2);
+  --reader-control-active: #2a3549;
+  --reader-control-border: rgba(144, 178, 255, 0.24);
+  --reader-control-active-border: rgba(144, 178, 255, 0.48);
+  --reader-control-accent: #a4c0ff;
+  --reader-control-glow: rgba(110, 151, 245, 0.22);
+  --reader-selection: rgba(111, 153, 255, 0.32);
+  --reader-annotation: rgba(117, 160, 255, 0.34);
   --maple-morning: #a4ccff;
   --maple-aurora: #63d8e8;
   --maple-ice: #7de6f4;
@@ -3198,4 +3224,205 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .notebook-editor:focus {
   border-color: color-mix(in srgb, #7385ec 55%, var(--reader-border));
   box-shadow: 0 0 0 3px rgba(145, 158, 246, 0.14);
+}
+
+/* v1.7.1 visual refinement: white space, blue light, compact controls. */
+.reader-app {
+  background:
+    radial-gradient(ellipse 48% 30% at 52% 7%, rgba(210, 226, 255, 0.42), transparent 75%),
+    radial-gradient(ellipse 35% 28% at 86% 20%, rgba(228, 239, 255, 0.35), transparent 72%),
+    #ffffff;
+}
+
+.reader-panel,
+.reader-surface,
+.viewer-scroll,
+.editor-surface,
+.editor-scroll {
+  background:
+    radial-gradient(ellipse 50% 34% at 50% 8%, rgba(215, 230, 255, 0.32), transparent 72%),
+    #ffffff;
+}
+
+.file-panel,
+.copilot-panel {
+  background: #f9fbff;
+}
+
+.reader-surface .markdown-body::selection,
+.reader-surface .markdown-body *::selection,
+.reader-surface .code-viewer::selection,
+.reader-surface .code-viewer *::selection {
+  background: var(--reader-selection);
+}
+
+.annotation-highlight {
+  background: var(--reader-annotation);
+}
+
+.selection-toolbar {
+  gap: 1px;
+  border-color: var(--reader-control-border);
+  border-radius: 8px;
+  padding: 3px;
+  background: var(--reader-control-bg);
+  box-shadow: 0 10px 26px var(--reader-control-glow), 0 0 0 3px rgba(208, 224, 255, 0.34);
+}
+
+.selection-toolbar::before {
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  border-color: var(--reader-control-border);
+  background: var(--reader-control-bg);
+}
+
+.selection-toolbar button {
+  width: 36px;
+  height: 26px;
+  border-radius: 5px;
+  color: var(--reader-control-accent);
+}
+
+.selection-toolbar button + button {
+  border-left-color: var(--reader-control-border);
+  border-radius: 0;
+}
+
+.selection-toolbar button:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.selection-toolbar button:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.selection-toolbar button:hover {
+  color: var(--reader-control-accent);
+  background: var(--reader-control-hover);
+}
+
+.annotation-action-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.assistant-switcher {
+  gap: 4px;
+  border-color: var(--reader-control-border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--reader-control-bg);
+  box-shadow: 0 7px 20px var(--reader-control-glow);
+}
+
+.assistant-switcher .panel-collapse {
+  border-radius: 6px;
+}
+
+.assistant-switcher .panel-view-button {
+  border-radius: 6px;
+  padding: 7px 8px;
+  color: var(--reader-muted);
+}
+
+.assistant-switcher .panel-view-button:hover {
+  color: var(--reader-control-accent);
+  background: var(--reader-control-hover);
+}
+
+.assistant-switcher .panel-view-button.active {
+  color: var(--reader-control-accent);
+  border-color: var(--reader-control-active-border);
+  background: var(--reader-control-active);
+  box-shadow: 0 4px 12px var(--reader-control-glow);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.notebook-tab {
+  border-color: var(--reader-control-border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: var(--reader-muted);
+  background: var(--reader-control-bg);
+}
+
+.notebook-tab:hover {
+  color: var(--reader-control-accent);
+  border-color: var(--reader-control-active-border);
+  background: var(--reader-control-hover);
+}
+
+.notebook-tab.active {
+  color: var(--reader-control-accent);
+  border-color: var(--reader-control-active-border);
+  background: var(--reader-control-active);
+  box-shadow: 0 4px 12px var(--reader-control-glow);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.notebook-title,
+.notebook-toolbar .button {
+  border-color: var(--reader-control-border);
+  border-radius: 6px;
+  background: var(--reader-control-bg);
+}
+
+.notebook-title {
+  padding: 7px 9px;
+}
+
+.notebook-title:focus {
+  border-color: var(--reader-control-active-border);
+  box-shadow: 0 0 0 3px var(--reader-control-glow);
+}
+
+.notebook-toolbar .button {
+  padding: 7px 10px;
+  color: var(--reader-control-accent);
+}
+
+.notebook-toolbar .button:hover:not(:disabled) {
+  color: var(--reader-control-accent);
+  border-color: var(--reader-control-active-border);
+  background: var(--reader-control-hover);
+}
+
+.notebook-toolbar .button.danger,
+.notebook-toolbar .button.danger:hover:not(:disabled) {
+  color: var(--reader-muted);
+  border-color: var(--reader-control-border);
+  background: var(--reader-control-bg);
+}
+
+.notebook-editor {
+  border-color: var(--reader-control-border);
+  border-radius: 8px;
+  background: var(--reader-control-bg);
+}
+
+.notebook-editor:focus {
+  border-color: var(--reader-control-active-border);
+  box-shadow: 0 0 0 3px var(--reader-control-glow);
+}
+
+body[data-hana-theme="dark"] .reader-app {
+  background:
+    radial-gradient(ellipse 48% 30% at 52% 7%, rgba(72, 107, 188, 0.22), transparent 75%),
+    #161c28;
+}
+
+body[data-hana-theme="dark"] .reader-panel,
+body[data-hana-theme="dark"] .reader-surface,
+body[data-hana-theme="dark"] .viewer-scroll,
+body[data-hana-theme="dark"] .editor-surface,
+body[data-hana-theme="dark"] .editor-scroll {
+  background:
+    radial-gradient(ellipse 50% 34% at 50% 8%, rgba(72, 107, 188, 0.18), transparent 72%),
+    #1b2432;
+}
+
+body[data-hana-theme="dark"] .file-panel,
+body[data-hana-theme="dark"] .copilot-panel {
+  background: #1d2634;
 }

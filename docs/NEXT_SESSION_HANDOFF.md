@@ -5,7 +5,7 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.5.1`
+- 当前版本：`v1.5.2`
 - 稳定基线：`main` / `v0.9.0`
 - 当前目标：完成插画化工作台、稳定阅读 dock 与侧栏折叠海浪的开发环境手测与本地发布包验收
 - `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建
@@ -20,8 +20,10 @@
 - 旋钮左侧为只读、右侧为编辑；点击 / 方向键先运行可中断转场，再切换底层阅读器状态。
 - h1 / h2 使用 Hana 蓝，h3-h6 使用正文色；代码与引用竖线使用统一蓝色。
 - 右侧仅有 AI 辅助和 Notebook 两个视图。
-- v1.5.1 新增插画全部是透明背景 SVG 路径；折叠按钮使用内联 SVG，窄条展开入口固定在顶部。
-- `.workspace-shell` / `.workspace-body` 让旋钮与 grid 壳层持久存在；折叠使用 280ms grid transition，旋钮转场使用 transitionend 与兜底时序。
+- v1.5.2 中间空状态改用用户提供的透明抠图 PNG，AI 空状态使用透明图片素材；不再对大幅插画强行路径化。
+- 折叠按钮继续使用内联 SVG，收起栏只保留每侧 3 个静态小浪花，展开入口固定在顶部。
+- `.workspace-shell` / `.workspace-body` 让旋钮与 grid 壳层持久存在；侧栏折叠使用 280ms grid transition，旋钮 dock 同步过渡 `right`，拖拽时实时跟随。
+- 当前项目接受图片型插画与 SVG UI 图形并存：大幅插画优先保留原图细节，小型 UI 几何图形才优先使用 SVG。
 
 ### 阅读与编辑
 

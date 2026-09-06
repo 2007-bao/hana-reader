@@ -1722,6 +1722,20 @@ body {
   font-weight: 600;
 }
 
+.tree-row.tree-root {
+  margin-top: 0;
+  margin-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--reader-divider) 55%, transparent);
+  border-radius: 0;
+  padding-top: 6px;
+  padding-bottom: 7px;
+  color: var(--reader-heading);
+}
+
+.tree-row.tree-root:hover {
+  background: transparent;
+}
+
 .tree-nested .tree-row.directory {
   margin-top: 6px;
 }
@@ -2694,7 +2708,7 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 @media (max-width: 560px) {
   .reader-mode-knob {
-    width: 116px;
+    width: 110px;
   }
 }
 
@@ -2727,10 +2741,15 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   right: calc(var(--right-panel-width, 288px) + 28px);
   z-index: 8;
   pointer-events: none;
+  transition: right 280ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .reader-mode-mount[hidden] {
   display: none;
+}
+
+.workspace-shell.is-resizing .reader-mode-mount {
+  transition: none;
 }
 
 .reader-mode-mount .reader-mode-toolbar,
@@ -2759,7 +2778,7 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 }
 
 .reader-mode-knob {
-  width: clamp(116px, 12vw, 132px);
+  width: clamp(110px, 11.4vw, 125px);
 }
 
 .file-panel-brand {
@@ -2837,14 +2856,13 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   display: block;
   width: 100%;
   height: auto;
-  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .welcome-butterfly-hit {
   position: absolute;
-  top: 38%;
-  left: 45%;
-  width: 10%;
+  top: 36%;
+  left: 47%;
+  width: 13%;
   height: 24%;
   border: 0;
   border-radius: 50%;
@@ -2852,20 +2870,13 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   cursor: pointer;
 }
 
-.welcome-butterfly-hit:hover,
-.welcome-butterfly-hit:focus-visible {
-  background: color-mix(in srgb, var(--reader-accent) 8%, transparent);
+.welcome-butterfly-hit:hover {
+  background: transparent;
 }
 
 .welcome-butterfly-hit:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--reader-accent) 58%, transparent);
   outline-offset: 4px;
-}
-
-.welcome-art-wrap:has(.welcome-butterfly-hit:hover) .welcome-art,
-.welcome-art-wrap:has(.welcome-butterfly-hit:focus-visible) .welcome-art {
-  transform: translateY(-2px);
-  opacity: 0.94;
 }
 
 .copilot-empty.compact {
@@ -2895,6 +2906,19 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   font-size: 13px;
 }
 
+.file-panel.is-collapsed,
+.copilot-panel.is-collapsed {
+  background: color-mix(in srgb, var(--reader-middle-bg) 74%, var(--reader-side-bg));
+}
+
+.file-panel.is-collapsed {
+  border-right-color: color-mix(in srgb, var(--reader-accent) 12%, var(--reader-border));
+}
+
+.copilot-panel.is-collapsed {
+  border-left-color: color-mix(in srgb, var(--reader-accent) 12%, var(--reader-border));
+}
+
 .collapse-waves {
   position: absolute;
   inset: 0;
@@ -2906,79 +2930,79 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .collapse-wave {
   position: absolute;
   display: block;
-  width: 58px;
+  width: 20px;
   height: auto;
   object-fit: contain;
-  opacity: 0.86;
-  will-change: transform, opacity;
+  opacity: 0.74;
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  animation-fill-mode: both;
 }
 
+.collapse-wave-a { animation-delay: 0ms; }
+.collapse-wave-b { animation-delay: 38ms; }
+.collapse-wave-c { animation-delay: 76ms; }
+
 .collapse-waves-left .collapse-wave-a {
-  bottom: 8px;
-  left: -22px;
-  animation: wave-surge-left 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  bottom: 22px;
+  left: 19px;
+  width: 21px;
+  animation-name: collapse-wave-arrive-left;
 }
 
 .collapse-waves-left .collapse-wave-b {
-  bottom: 57px;
-  left: -12px;
-  width: 47px;
-  animation: wave-surge-left 280ms 42ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  bottom: 126px;
+  left: 4px;
+  width: 17px;
+  animation-name: collapse-wave-arrive-left;
 }
 
 .collapse-waves-left .collapse-wave-c {
-  bottom: 106px;
-  left: -18px;
-  width: 39px;
-  animation: wave-surge-left 280ms 78ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  bottom: 70px;
+  left: 12px;
+  width: 23px;
+  animation-name: collapse-wave-arrive-left;
 }
 
 .collapse-waves-right .collapse-wave-a {
-  right: -22px;
-  bottom: 8px;
-  animation: wave-surge-right 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  right: 19px;
+  bottom: 30px;
+  width: 20px;
+  animation-name: collapse-wave-arrive-right;
 }
 
 .collapse-waves-right .collapse-wave-b {
-  right: -12px;
-  bottom: 57px;
-  width: 47px;
-  animation: wave-surge-right 280ms 42ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  right: 4px;
+  bottom: 139px;
+  width: 18px;
+  animation-name: collapse-wave-arrive-right;
 }
 
 .collapse-waves-right .collapse-wave-c {
-  right: -18px;
-  bottom: 106px;
-  width: 39px;
-  animation: wave-surge-right 280ms 78ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  right: 12px;
+  bottom: 78px;
+  width: 22px;
+  animation-name: collapse-wave-arrive-right;
 }
 
-@keyframes wave-surge-left {
-  from { opacity: 0; transform: translate3d(-24px, 10px, 0) scale(0.88); }
-  to { opacity: 0.86; transform: translate3d(0, 0, 0) scale(1); }
+@keyframes collapse-wave-arrive-left {
+  from { opacity: 0; transform: translate3d(-4px, 2px, 0) scale(0.92); }
+  to { opacity: 0.74; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-@keyframes wave-surge-right {
-  from { opacity: 0; transform: translate3d(24px, 10px, 0) scaleX(-1) scale(0.88); }
-  to { opacity: 0.86; transform: translate3d(0, 0, 0) scaleX(-1) scale(1); }
+@keyframes collapse-wave-arrive-right {
+  from { opacity: 0; transform: translate3d(4px, 2px, 0) scaleX(-1) scale(0.92); }
+  to { opacity: 0.74; transform: translate3d(0, 0, 0) scaleX(-1) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workspace {
+  .workspace,
+  .reader-mode-mount {
     transition: none;
-  }
-
-  .welcome-art {
-    transition: none;
-  }
-
-  .welcome-art-wrap:has(.welcome-butterfly-hit:hover) .welcome-art,
-  .welcome-art-wrap:has(.welcome-butterfly-hit:focus-visible) .welcome-art {
-    transform: none;
   }
 
   .collapse-wave {
-    animation: none !important;
-    opacity: 0.78;
+    animation: none;
+    opacity: 0.7;
   }
 }

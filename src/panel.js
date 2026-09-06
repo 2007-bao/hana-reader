@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.5.1';
+const PLUGIN_VERSION = '1.5.2';
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
@@ -853,7 +853,7 @@ function renderTreeNode(node, depth) {
       : '<div class="tree-empty">空文件夹</div>'}</div>`
     : '';
 
-  return `<button class="tree-row ${directory ? 'directory' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" data-depth="${depth}" style="--depth:${depth}" title="${escapeHtml(node.name)}" role="treeitem" aria-expanded="${directory ? String(Boolean(node.expanded)) : 'false'}"${selected ? ' aria-current="page"' : ''}>
+  return `<button class="tree-row ${directory ? 'directory' : ''}${depth === 0 ? ' tree-root' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" data-depth="${depth}" style="--depth:${depth}" title="${escapeHtml(node.name)}" role="treeitem" aria-expanded="${directory ? String(Boolean(node.expanded)) : 'false'}"${selected ? ' aria-current="page"' : ''}>
     <span class="tree-icon ${iconType}" aria-hidden="true">${treeIconSvg(directory, node.expanded, iconType)}</span>
     <span class="tree-name">${escapeHtml(node.name)}</span>
     <span class="tree-size">${node.isDirectory ? '' : escapeHtml(formatSize(node.size))}</span>
@@ -1734,12 +1734,12 @@ function renderCollapseIcon() {
 }
 
 function renderCollapseWaves(side) {
-  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-waves.svg'))}" alt=""></div>`;
+  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""></div>`;
 }
 
 function renderReaderPane() {
   if (!state.current) {
-    return `<div class="welcome-pane"><div class="welcome-art-wrap"><img class="welcome-art" src="${escapeHtml(pluginAssetUrl('reader-empty.svg'))}" alt=""><button class="welcome-butterfly-hit" data-action="pick" aria-label="选择文件夹" title="选择文件夹"></button></div></div>`;
+    return `<div class="welcome-pane"><div class="welcome-art-wrap"><img class="welcome-art" src="${escapeHtml(pluginAssetUrl('reader-empty.png'))}" alt="开始阅读插画"><button class="welcome-butterfly-hit" data-action="pick" aria-label="选择文件夹" title="选择文件夹"></button></div></div>`;
   }
 
   const current = state.current;
@@ -1798,7 +1798,7 @@ function renderCopilotPanel() {
     <div class="copilot-message-body">${message.role === 'assistant' ? renderAssistantText(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
   </div>`).join('');
   return `<div class="copilot-content">
-    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.svg'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
+    <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.png'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
     ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
     <div class="copilot-composer"><textarea data-copilot-prompt rows="1" placeholder="询问当前文件……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="copilot-send" data-action="copilot-submit" aria-label="发送" title="发送（Enter）" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '…' : '↑'}</button></div>
   </div>`;
@@ -1870,8 +1870,10 @@ function beginResize(side, event) {
   event.preventDefault();
   resizeCleanup?.();
   const workspace = root.querySelector('.workspace');
+  const shell = root.querySelector('.workspace-shell');
   if (!workspace) return;
   workspace.classList.add('is-resizing');
+  shell?.classList.add('is-resizing');
   const startX = event.clientX;
   const startWidth = side === 'left' ? state.leftWidth : state.rightWidth;
   const update = (moveEvent) => {
@@ -1879,13 +1881,16 @@ function beginResize(side, event) {
     const width = side === 'left' ? startWidth + delta : startWidth - delta;
     if (side === 'left') state.leftWidth = Math.min(420, Math.max(180, width));
     else state.rightWidth = Math.min(420, Math.max(220, width));
-    workspace.style.setProperty(`--${side}-panel-width`, `${side === 'left' ? state.leftWidth : state.rightWidth}px`);
+    const nextWidth = side === 'left' ? state.leftWidth : state.rightWidth;
+    workspace.style.setProperty(`--${side}-panel-width`, `${nextWidth}px`);
+    if (side === 'right') shell?.style.setProperty('--right-panel-width', `${nextWidth}px`);
   };
   const finish = () => {
     window.removeEventListener('pointermove', update);
     window.removeEventListener('pointerup', finish);
     resizeCleanup = null;
     workspace.classList.remove('is-resizing');
+    shell?.classList.remove('is-resizing');
     saveLayout();
     render();
   };

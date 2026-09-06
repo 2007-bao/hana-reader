@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.7.4 reader page with guarded resource access', async () => {
+test('manifest declares the v1.7.5 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.7.4');
+  assert.equal(manifest.version, '1.7.5');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -79,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.7\.4'/);
+  assert.match(route, /ASSET_REVISION = '1\.7\.5'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.4'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.5'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -199,6 +199,10 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /copilot-empty\.png/);
   assert.match(panel, /function renderCollapseIcon/);
   assert.match(panel, /panel-collapse-icon/);
+  assert.match(panel, /function requestStableSurfaceResize/);
+  assert.match(panel, /Number\(window\.innerHeight\)/);
+  assert.match(panel, /side-collapse-slot/);
+  assert.doesNotMatch(panel, /root\.scrollHeight/);
   assert.doesNotMatch(panel, /collapse-left\.png|collapse-right\.png/);
   assert.match(panel, /data-notebook/);
   assert.match(panel, /contextmenu/);
@@ -237,7 +241,7 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.collapse-waves-right\.is-entering/);
   assert.match(css, /grid-template-columns: 96px 0/);
   assert.match(css, /right: 4px/);
-  assert.match(css, /left: 3px/);
+  assert.match(css, /left: 4px/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /animation: wave/);
   assert.match(css, /transition: right 280ms/);
@@ -251,7 +255,9 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /\.workspace-shell/);
   assert.match(css, /overflow: visible/);
   assert.match(css, /transition: grid-template-columns/);
-  assert.match(css, /\.file-panel-expand[\s\S]*top: 12px/);
+  assert.match(css, /\.file-panel-expand[\s\S]*top: 22px/);
+  assert.match(css, /\.file-panel\.is-collapsed > \.panel-heading[\s\S]*visibility: hidden/);
+  assert.match(css, /\.side-collapse-slot/);
   assert.doesNotMatch(css, /\.file-panel\.is-collapsed \.panel-heading > div:first-child/);
   assert.match(css, /\.file-panel-expand/);
   assert.match(css, /\.file-panel\.is-collapsed \.panel-heading-actions/);
@@ -263,9 +269,11 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /height: 26px/);
   assert.match(css, /transform: translateY\(-1px\)/);
   assert.match(css, /\.assistant-switcher > \.assistant-collapse/);
-  assert.match(css, /flex: 0 0 30px/);
+  assert.match(css, /flex: 0 0 32px/);
   assert.match(css, /\.side-collapse-control/);
-  assert.match(css, /top: 8px/);
+  assert.match(css, /height: 60px/);
+  assert.match(css, /height: 54px/);
+  assert.match(css, /padding: 17px 0 5px 4px/);
   assert.match(css, /right: 4px/);
   assert.match(css, /left: 4px/);
   assert.match(css, /background: inherit/);

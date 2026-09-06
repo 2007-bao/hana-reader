@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.7.4` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v1.7.5` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -16,6 +16,12 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 - 高亮、划线和擦除直接作用于正文，不把阅读内容挪到侧栏。
 
 所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
+
+## v1.7.5 本轮完成：固定侧栏折叠前后的纵向位置
+
+- 左侧保留固定的 60px 顶部标题栏占位；折叠时只隐藏内容，不再让文件树与顶部控件上下跳动。
+- 右侧折叠态保留与展开态等高的 54px 顶部占位，AI 辅助 / Notebook 切换条与折叠图标使用同一纵向锚点。
+- `ui.resize` 改为使用稳定的视口高度并去重，不再用变化中的 `root.scrollHeight` 反复改变宿主高度。
 
 ## v1.7.4 本轮完成：对齐左右折叠图标
 
@@ -188,4 +194,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.7.4`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.7.5`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

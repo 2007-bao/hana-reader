@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.7.4';
+const PLUGIN_VERSION = '1.7.5';
 const COLLAPSED_PANEL_WIDTH = 96;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -33,6 +33,7 @@ let readerModeTransitionTimer = 0;
 let readerModeTransitionTarget = null;
 let readerModeTransitionSource = null;
 let readerModeTransitionToken = 0;
+let lastRequestedSurfaceHeight = 0;
 const readerModeKnobBindings = new WeakSet();
 const readerModeKeyBindings = new WeakSet();
 const actionBindings = new WeakSet();
@@ -1803,7 +1804,7 @@ function renderReaderPane() {
 
 function renderCopilot() {
   if (state.rightCollapsed) {
-    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse side-collapse-control" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></aside>`;
+    return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<div class="side-collapse-slot"><button class="panel-collapse side-collapse-control" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></div></aside>`;
   }
   return `<aside class="copilot-panel">
     <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse side-collapse-control assistant-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
@@ -1940,6 +1941,13 @@ function ensureWorkspaceShell() {
     shell = root.querySelector('.workspace-shell');
   }
   return shell;
+}
+
+function requestStableSurfaceResize() {
+  const height = Math.max(680, Number(window.innerHeight) || 0);
+  if (height === lastRequestedSurfaceHeight) return;
+  lastRequestedSurfaceHeight = height;
+  hana.ui.resize({ height });
 }
 
 function render() {
@@ -2135,7 +2143,7 @@ function render() {
   }
 
   requestAnimationFrame(async () => {
-    hana.ui.resize({ height: Math.max(680, root.scrollHeight) });
+    requestStableSurfaceResize();
     if (!remountSession || !state.editing || state.current !== remountSession || state.busy) return;
     try {
       if (editorCleanup) await editorCleanup;

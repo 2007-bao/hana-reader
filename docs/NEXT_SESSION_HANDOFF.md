@@ -5,7 +5,7 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.7.4`
+- 当前版本：`v1.7.5`
 - 稳定基线：`main` / `v0.9.0`
 - 当前目标：完成只读批注工具、右栏胶囊化、海浪触发收束与稳定阅读 dock 的宿主内手测和本地发布包验收
 - `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建
@@ -34,6 +34,7 @@
 - v1.7.2 为右侧折叠图标增加独立固定样式，确保 AI 与 Notebook 状态切换时右侧顶部结构不变。
 - v1.7.3 恢复浅灰侧栏，统一 AI / Notebook 顶部切换条背景与尺寸，减弱散光，并将左侧文件栏顶端内容下移约 6px。
 - v1.7.4 左右折叠 / 展开图标统一 32px，折叠态使用对称的内侧边缘锚点与顶部位置。
+- v1.7.5 固定左右侧栏折叠前后的顶部占位：左侧 60px，右侧 54px；稳定宿主高度测量，避免 `ui.resize` 引起整页纵向跳动。
 - 折叠按钮继续使用内联 SVG，海浪静止后不持续漂浮，展开入口固定在顶部。
 - `.workspace-shell` / `.workspace-body` 让旋钮与 grid 壳层持久存在；侧栏折叠使用 280ms grid transition，旋钮 dock 同步过渡 `right`，拖拽时实时跟随。
 - 当前项目接受图片型插画与 SVG UI 图形并存：大幅插画优先保留原图细节，小型 UI 几何图形才优先使用 SVG。

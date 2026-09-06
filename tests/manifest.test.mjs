@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.5.4 reader page with guarded resource access', async () => {
+test('manifest declares the v1.6.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.5.4');
+  assert.equal(manifest.version, '1.6.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -53,7 +53,7 @@ test('reader source, built assets, and cache-busting route are present', async (
     'assets/panel.js',
     'assets/panel.css',
     'assets/native-knob.svg',
-    'assets/collapse-wave.svg',
+    'assets/collapse-wave.png',
     'assets/reader-empty.png',
     'assets/copilot-empty.png',
     'assets/file-panel-header.svg',
@@ -70,7 +70,8 @@ test('reader source, built assets, and cache-busting route are present', async (
   const panelSource = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
   const panelBundle = await fs.readFile(path.join(root, 'assets/panel.js'), 'utf8');
   const nativeKnob = await fs.readFile(path.join(root, 'assets/native-knob.svg'), 'utf8');
-  const vectorAssets = await Promise.all(['file-panel-header.svg', 'collapse-wave.svg'].map((name) => fs.readFile(path.join(root, 'assets', name), 'utf8')));
+  const vectorAssets = await Promise.all(['file-panel-header.svg'].map((name) => fs.readFile(path.join(root, 'assets', name), 'utf8')));
+  const collapseWave = await fs.readFile(path.join(root, 'assets', 'collapse-wave.png'));
   const route = await fs.readFile(path.join(root, 'routes/ui.js'), 'utf8');
   const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
   assert.ok(!panelSource.includes("from './hana-bridge.js'"));
@@ -78,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.5\.4'/);
+  assert.match(route, /ASSET_REVISION = '1\.6\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -88,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.5.4'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.6.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -119,6 +120,10 @@ test('reader source, built assets, and cache-busting route are present', async (
     assert.match(asset, /<path/);
     assert.doesNotMatch(asset, /<image|<filter|drop-shadow/);
   });
+  assert.deepEqual([...collapseWave.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(collapseWave.readUInt32BE(16), 229);
+  assert.equal(collapseWave.readUInt32BE(20), 1536);
+  assert.ok(collapseWave.length > 100000);
   assert.match(panelSource, /只读/);
   assert.match(panelSource, /编辑/);
   assert.match(panelSource, /reader-floating-toolbar/);
@@ -181,7 +186,7 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(panel, /file-panel-expand/);
   assert.match(panel, /data-action="toggle-left"/);
   assert.match(panel, /file-panel-header\.svg/);
-  assert.match(panel, /collapse-wave\.svg/);
+  assert.match(panel, /collapse-wave\.png/);
   assert.match(panel, /reader-empty\.png/);
   assert.match(panel, /copilot-empty\.png/);
   assert.match(panel, /function renderCollapseIcon/);
@@ -213,16 +218,18 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /width: clamp\(110px, 11\.4vw, 125px\)/);
   assert.match(css, /\.collapse-waves/);
   assert.match(css, /width: min\(100%, 1220px\)/);
-  assert.match(css, /top: 21%/);
-  assert.match(css, /width: 48px/);
+  assert.match(css, /height: 120%/);
+  assert.match(css, /collapse-wave-art/);
+  assert.match(css, /collapse-wave-surge-left/);
+  assert.match(css, /collapse-wave-surge-right/);
   assert.match(css, /grid-template-columns: 64px 0/);
   assert.match(css, /right: 16px/);
   assert.match(css, /left: 16px/);
   assert.match(css, /prefers-reduced-motion/);
-  assert.doesNotMatch(css, /wave-surge|animation: wave/);
+  assert.doesNotMatch(css, /animation: wave/);
   assert.match(css, /transition: right 280ms/);
-  assert.match(css, /collapse-wave-arrive-left/);
-  assert.match(css, /collapse-wave-arrive-right/);
+  assert.match(css, /padding-inline: clamp\(30px, 5\.8vw, 96px\)/);
+  assert.match(css, /z-index: 4/);
   assert.match(css, /\.reader-mode-knob-art/);
   assert.match(css, /\.reader-mode-mount/);
   assert.match(css, /\.workspace-shell/);

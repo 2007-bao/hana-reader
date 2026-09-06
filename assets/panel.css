@@ -2911,6 +2911,7 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 .file-panel.is-collapsed,
 .copilot-panel.is-collapsed {
+  z-index: 4;
   background: color-mix(in srgb, var(--reader-middle-bg) 74%, var(--reader-side-bg));
 }
 
@@ -2930,87 +2931,50 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   pointer-events: none;
 }
 
-.collapse-wave {
+.collapse-wave-art {
   position: absolute;
+  top: -10%;
   display: block;
-  width: 34px;
-  height: auto;
+  height: 120%;
+  width: auto;
+  max-width: none;
+  opacity: 0.96;
   object-fit: contain;
-  opacity: 0.88;
-  transform-origin: 50% 72%;
-  animation-duration: 240ms;
+  transform-origin: 50% 50%;
+  animation-duration: 280ms;
   animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   animation-fill-mode: both;
+  will-change: transform, opacity;
 }
 
-.collapse-wave-a { animation-delay: 0ms; }
-.collapse-wave-b { animation-delay: 55ms; }
-.collapse-wave-c { animation-delay: 110ms; }
-
-.collapse-waves-left .collapse-wave {
-  transform: rotate(var(--wave-tilt));
+.collapse-waves-left .collapse-wave-art {
+  left: -28px;
+  transform: translate3d(0, 0, 0) scale(1);
+  animation-name: collapse-wave-surge-left;
 }
 
-.collapse-waves-left .collapse-wave-a {
-  top: 21%;
-  left: 27px;
-  width: 42px;
-  --wave-tilt: -7deg;
-  animation-name: collapse-wave-arrive-left;
+.collapse-waves-right .collapse-wave-art {
+  right: -28px;
+  transform: scaleX(-1);
+  animation-name: collapse-wave-surge-right;
 }
 
-.collapse-waves-left .collapse-wave-b {
-  top: 45%;
-  left: 4px;
-  width: 34px;
-  --wave-tilt: 5deg;
-  animation-name: collapse-wave-arrive-left;
+@keyframes collapse-wave-surge-left {
+  from { opacity: 0; transform: translate3d(-22%, 0, 0) scale(0.94); }
+  70% { opacity: 1; transform: translate3d(2%, 0, 0) scale(1.01); }
+  to { opacity: 0.96; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-.collapse-waves-left .collapse-wave-c {
-  bottom: 12%;
-  left: 24px;
-  width: 48px;
-  --wave-tilt: -3deg;
-  animation-name: collapse-wave-arrive-left;
+@keyframes collapse-wave-surge-right {
+  from { opacity: 0; transform: translate3d(22%, 0, 0) scaleX(-1) scale(0.94); }
+  70% { opacity: 1; transform: translate3d(-2%, 0, 0) scaleX(-1) scale(1.01); }
+  to { opacity: 0.96; transform: translate3d(0, 0, 0) scaleX(-1) scale(1); }
 }
 
-.collapse-waves-right .collapse-wave {
-  transform: scaleX(-1) rotate(var(--wave-tilt));
-}
-
-.collapse-waves-right .collapse-wave-a {
-  top: 21%;
-  right: 27px;
-  width: 42px;
-  --wave-tilt: 7deg;
-  animation-name: collapse-wave-arrive-right;
-}
-
-.collapse-waves-right .collapse-wave-b {
-  top: 45%;
-  right: 4px;
-  width: 34px;
-  --wave-tilt: -5deg;
-  animation-name: collapse-wave-arrive-right;
-}
-
-.collapse-waves-right .collapse-wave-c {
-  bottom: 12%;
-  right: 24px;
-  width: 48px;
-  --wave-tilt: 3deg;
-  animation-name: collapse-wave-arrive-right;
-}
-
-@keyframes collapse-wave-arrive-left {
-  from { opacity: 0; transform: translate3d(-15px, 6px, 0) rotate(0deg) scale(0.86); }
-  to { opacity: 0.88; transform: translate3d(0, 0, 0) rotate(var(--wave-tilt)) scale(1); }
-}
-
-@keyframes collapse-wave-arrive-right {
-  from { opacity: 0; transform: translate3d(15px, 6px, 0) scaleX(-1) rotate(0deg) scale(0.86); }
-  to { opacity: 0.88; transform: translate3d(0, 0, 0) scaleX(-1) rotate(var(--wave-tilt)) scale(1); }
+@media (min-width: 681px) {
+  .reader-surface > .viewer-scroll {
+    padding-inline: clamp(30px, 5.8vw, 96px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3019,8 +2983,8 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
     transition: none;
   }
 
-  .collapse-wave {
+  .collapse-wave-art {
     animation: none;
-    opacity: 0.78;
+    opacity: 0.92;
   }
 }

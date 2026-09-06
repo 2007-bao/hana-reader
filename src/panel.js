@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.5.4';
+const PLUGIN_VERSION = '1.6.0';
 const COLLAPSED_PANEL_WIDTH = 64;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -1735,7 +1735,7 @@ function renderCollapseIcon() {
 }
 
 function renderCollapseWaves(side) {
-  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave collapse-wave-a" src="${escapeHtml(pluginAssetUrl('collapse-wave.svg'))}" alt=""><img class="collapse-wave collapse-wave-b" src="${escapeHtml(pluginAssetUrl('collapse-wave.svg'))}" alt=""><img class="collapse-wave collapse-wave-c" src="${escapeHtml(pluginAssetUrl('collapse-wave.svg'))}" alt=""></div>`;
+  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave-art" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""></div>`;
 }
 
 function renderReaderPane() {

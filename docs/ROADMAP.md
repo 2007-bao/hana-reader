@@ -1,6 +1,6 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.6.0`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v1.6.1`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
 
@@ -181,6 +181,12 @@
 - 将用户提供的透明海浪图裁成紧凑纵向素材，作为两侧完整高度的装饰图层；右侧使用镜像，不重复堆叠小图。
 - 海浪越过 64px rail 进入中间阅读区，折叠时从外侧涌入，使用 transform / opacity 动效并支持 reduced-motion。
 - 只读内容左右 padding 从 `clamp(22px, 4vw, 64px)` 调整为 `clamp(30px, 5.8vw, 96px)`；编辑内容不跟随扩大。
+
+## v1.6.1 折叠构图二次校准
+
+- 折叠 rail 从 64px 调整为 96px；折叠图标对齐未折叠标题栏高度，并靠近中间阅读区一侧。
+- 折叠态隐藏 rail 边框与相邻 resizer 竖线，减少大浪构图中的硬切割。
+- 只读内容左右 padding 从 `clamp(30px, 5.8vw, 96px)` 调整为 `clamp(40px, 7.7vw, 128px)`，编辑内容与窄屏密度保持不变。
 
 ## 下一阶段：优先级
 

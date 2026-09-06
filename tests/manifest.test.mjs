@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.6.0 reader page with guarded resource access', async () => {
+test('manifest declares the v1.6.1 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.6.0');
+  assert.equal(manifest.version, '1.6.1');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -79,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.6\.0'/);
+  assert.match(route, /ASSET_REVISION = '1\.6\.1'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.6.0'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.6.1'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -147,7 +147,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /fileIconType/);
   assert.match(panelSource, /previousTreeScroll/);
   assert.match(panelSource, /tree-root/);
-  assert.match(panelSource, /COLLAPSED_PANEL_WIDTH = 64/);
+  assert.match(panelSource, /COLLAPSED_PANEL_WIDTH = 96/);
   assert.match(panelSource, /scheduleSessionSave/);
   assert.match(panelSource, /toggle-left/);
   assert.doesNotMatch(panelSource, /data-search-input/);
@@ -222,14 +222,17 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /collapse-wave-art/);
   assert.match(css, /collapse-wave-surge-left/);
   assert.match(css, /collapse-wave-surge-right/);
-  assert.match(css, /grid-template-columns: 64px 0/);
-  assert.match(css, /right: 16px/);
-  assert.match(css, /left: 16px/);
+  assert.match(css, /grid-template-columns: 96px 0/);
+  assert.match(css, /right: 8px/);
+  assert.match(css, /left: 8px/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /animation: wave/);
   assert.match(css, /transition: right 280ms/);
-  assert.match(css, /padding-inline: clamp\(30px, 5\.8vw, 96px\)/);
+  assert.match(css, /padding-inline: clamp\(40px, 7\.7vw, 128px\)/);
   assert.match(css, /z-index: 4/);
+  assert.match(css, /border-right-color: transparent/);
+  assert.match(css, /border-left-color: transparent/);
+  assert.match(css, /:has\(\+ \.copilot-panel\.is-collapsed\)/);
   assert.match(css, /\.reader-mode-knob-art/);
   assert.match(css, /\.reader-mode-mount/);
   assert.match(css, /\.workspace-shell/);

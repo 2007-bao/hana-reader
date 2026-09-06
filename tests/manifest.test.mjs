@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.6.1 reader page with guarded resource access', async () => {
+test('manifest declares the v1.7.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.6.1');
+  assert.equal(manifest.version, '1.7.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -79,7 +79,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.6\.1'/);
+  assert.match(route, /ASSET_REVISION = '1\.7\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +89,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.6.1'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -133,6 +133,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /show-notebook/);
   assert.match(panelSource, /data-notebook/);
   assert.match(panelSource, /applyAnnotationMarks/);
+  assert.match(panelSource, /sliceAnnotation/);
+  assert.match(panelSource, /selection\.rawStart/);
+  assert.match(panelSource, /annotationActionIcon/);
+  assert.match(panelSource, /annotation-action-icon/);
+  assert.match(panelSource, /pendingWaveEntrances/);
+  assert.match(panelSource, /is-entering/);
   assert.doesNotMatch(panelSource, /data-annotation-filter/);
   assert.doesNotMatch(panelSource, /resolveVisibleAnnotations/);
   assert.match(panelSource, /copilot-submit/);
@@ -160,8 +166,8 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(panelSource, /annotation-comment/);
   assert.match(panelSource, /showAnnotationBubble/);
   assert.match(panelSource, /data-annotation-action/);
-  assert.match(panelSource, /data-annotation-action="erase"/);
-  assert.match(panelSource, /data-annotation-action="underline">划线/);
+  assert.match(panelSource, /\['highlight', 'underline', 'erase'\]/);
+  assert.match(panelSource, /kind === 'underline'/);
   assert.doesNotMatch(panelSource, /data-annotation-action="underline">下划线/);
   assert.doesNotMatch(panelSource, /<header class=\"topbar\"/);
   assert.match(css, /grid-template-columns: var\(--left-panel-width\)/);
@@ -215,6 +221,9 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(annotationEngine, /dataset\.annotationNote/);
   assert.match(css, /\.reader-floating-toolbar/);
   assert.match(css, /\.reader-mode-knob/);
+  assert.match(css, /::selection/);
+  assert.match(css, /\.assistant-switcher/);
+  assert.match(css, /\.notebook-tab/);
   assert.match(css, /width: clamp\(110px, 11\.4vw, 125px\)/);
   assert.match(css, /\.collapse-waves/);
   assert.match(css, /width: min\(100%, 1220px\)/);
@@ -222,9 +231,11 @@ test('visual simplification keeps annotations, notebook, and Ctrl-Z paths local'
   assert.match(css, /collapse-wave-art/);
   assert.match(css, /collapse-wave-surge-left/);
   assert.match(css, /collapse-wave-surge-right/);
+  assert.match(css, /\.collapse-waves-left\.is-entering/);
+  assert.match(css, /\.collapse-waves-right\.is-entering/);
   assert.match(css, /grid-template-columns: 96px 0/);
-  assert.match(css, /right: 8px/);
-  assert.match(css, /left: 8px/);
+  assert.match(css, /right: 3px/);
+  assert.match(css, /left: 3px/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /animation: wave/);
   assert.match(css, /transition: right 280ms/);

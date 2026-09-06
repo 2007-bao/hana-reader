@@ -33,7 +33,7 @@ test('annotation engine restores text anchors and wraps non-overlapping ranges',
   const htmlPath = path.join(tempDir, 'case.html');
   const profilePath = path.join(tempDir, 'profile');
   await fs.writeFile(entryPath, `
-    import { applyAnnotationMarks, selectionAnchor } from ${JSON.stringify(path.join(root, 'src/annotation-engine.js'))};
+    import { applyAnnotationMarks, selectionAnchor, sliceAnnotation } from ${JSON.stringify(path.join(root, 'src/annotation-engine.js'))};
     const article = document.createElement('article');
     article.innerHTML = '<p>Hello <strong>world</strong> and Hana.</p><p>Second paragraph.</p>';
     document.body.append(article);
@@ -50,7 +50,12 @@ test('annotation engine restores text anchors and wraps non-overlapping ranges',
       { id: 'hana', kind: 'comment', quote: 'Hana', note: '记下这个概念。', prefix: 'world and ', suffix: '.' },
       { id: 'second', kind: 'underline', quote: 'Second paragraph.' },
     ]);
+    const leftSlice = sliceAnnotation({ id: 'whole', kind: 'highlight', quote: 'abcdefghij' }, 'abcdefghij', 0, 3, () => 'left');
+    const rightSlice = sliceAnnotation({ id: 'whole', kind: 'highlight', quote: 'abcdefghij' }, 'abcdefghij', 6, 10, () => 'right');
     document.body.dataset.anchor = anchor?.quote || '';
+    document.body.dataset.rawRange = String(anchor?.rawStart) + ':' + String(anchor?.rawEnd);
+    document.body.dataset.leftSlice = String(leftSlice?.quote) + ':' + String(leftSlice?.id);
+    document.body.dataset.rightSlice = String(rightSlice?.quote) + ':' + String(rightSlice?.id);
     document.body.dataset.rendered = String(rendered.size);
     document.body.dataset.highlight = String(Boolean(article.querySelector('[data-annotation-id="world"]')));
     document.body.dataset.comment = String(Boolean(article.querySelector('.annotation-comment[data-annotation-id="hana"]')));
@@ -80,6 +85,9 @@ test('annotation engine restores text anchors and wraps non-overlapping ranges',
     ], { encoding: 'utf8', timeout: 30000, windowsHide: true });
 
     assert.match(dom, /data-anchor="world"/);
+    assert.match(dom, /data-raw-range="6:11"/);
+    assert.match(dom, /data-left-slice="abc:left"/);
+    assert.match(dom, /data-right-slice="ghij:right"/);
     assert.match(dom, /data-rendered="3"/);
     assert.match(dom, /data-highlight="true"/);
     assert.match(dom, /data-comment="true"/);

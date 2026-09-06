@@ -19,14 +19,18 @@ export function selectionAnchor(article, selection) {
   } catch {
     return null;
   }
-  const start = articleRange.toString().replace(/\s+/g, ' ').length;
+  const rawPrefix = articleRange.toString();
+  const rawStart = rawPrefix.length;
+  const rawEnd = rawStart + rawQuote.length;
   const articleText = article.textContent || '';
   const normalizedText = articleText.replace(/\s+/g, ' ');
-  const normalizedStart = Math.min(start, normalizedText.length);
+  const normalizedStart = Math.min(rawPrefix.replace(/\s+/g, ' ').length, normalizedText.length);
   return {
     quote,
     start: normalizedStart,
     end: normalizedStart + quote.length,
+    rawStart,
+    rawEnd,
     prefix: normalizedText.slice(Math.max(0, normalizedStart - MAX_ANCHOR_CONTEXT), normalizedStart),
     suffix: normalizedText.slice(normalizedStart + quote.length, normalizedStart + quote.length + MAX_ANCHOR_CONTEXT),
   };
@@ -69,6 +73,20 @@ export function findAnnotationPosition(article, annotation) {
   }) ?? candidates[0];
 
   return { start: chosen, end: chosen + quote.length };
+}
+
+export function sliceAnnotation(annotation, articleText, start, end, createId = () => annotation?.id) {
+  const quote = String(articleText || '').slice(start, end).replace(/\s+/g, ' ').trim();
+  if (!annotation || !quote) return null;
+  const text = String(articleText || '');
+  return {
+    ...annotation,
+    id: createId(),
+    quote,
+    prefix: text.slice(Math.max(0, start - MAX_ANCHOR_CONTEXT), start).replace(/\s+/g, ' ').slice(-MAX_ANCHOR_CONTEXT),
+    suffix: text.slice(end, end + MAX_ANCHOR_CONTEXT).replace(/\s+/g, ' ').slice(0, MAX_ANCHOR_CONTEXT),
+    updatedAt: Date.now(),
+  };
 }
 
 /**

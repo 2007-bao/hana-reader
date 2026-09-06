@@ -1,6 +1,6 @@
 import { highlightCode, renderMarkdown, sanitizeHtmlPreview } from './markdown-engine.js';
 import { mountMarkdownEditor } from './markdown-editor.js';
-import { applyAnnotationMarks, findAnnotationPosition, selectionAnchor } from './annotation-engine.js';
+import { applyAnnotationMarks, findAnnotationPosition, selectionAnchor, sliceAnnotation } from './annotation-engine.js';
 import { annotationResourceKey, loadAnnotations, saveAnnotations } from './annotation-store.js';
 import { createNotebook, loadNotebookStore, saveNotebookStore } from './notebook-store.js';
 
@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.6.1';
+const PLUGIN_VERSION = '1.7.0';
 const COLLAPSED_PANEL_WIDTH = 96;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -36,6 +36,7 @@ let readerModeTransitionToken = 0;
 const readerModeKnobBindings = new WeakSet();
 const readerModeKeyBindings = new WeakSet();
 const actionBindings = new WeakSet();
+const pendingWaveEntrances = new Set();
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -1370,12 +1371,21 @@ function currentSelectionRect() {
   return selection.getRangeAt(0).getBoundingClientRect();
 }
 
+function annotationActionIcon(kind) {
+  const icons = {
+    highlight: '<svg class="annotation-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 8.6-8.6a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L9 18H6v-3Z"></path><path d="m13.5 8.5 3 3"></path><path d="M4 20h16"></path></svg>',
+    underline: '<svg class="annotation-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v6a5 5 0 0 0 10 0V5"></path><path d="M5 19h14"></path></svg>',
+    erase: '<svg class="annotation-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6.5 15.5 7.8-7.8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8l-5.8 5.8H8.5l-2-2a.7.7 0 0 1 0-1Z"></path><path d="M4 19h8"></path></svg>',
+  };
+  return icons[kind] || '';
+}
+
 function createSelectionToolbar(viewer, rect = currentSelectionRect()) {
   removeSelectionOverlay();
   if (!viewer || !rect) return;
   const toolbar = document.createElement('div');
   toolbar.className = 'selection-toolbar';
-  toolbar.innerHTML = '<button type="button" data-annotation-action="highlight">高亮</button><button type="button" data-annotation-action="underline">划线</button><button type="button" data-annotation-action="erase">擦除</button>';
+  toolbar.innerHTML = ['highlight', 'underline', 'erase'].map((kind) => `<button type="button" data-annotation-action="${kind}" aria-label="${kind === 'highlight' ? '高亮' : kind === 'underline' ? '划线' : '擦除'}" title="${kind === 'highlight' ? '高亮' : kind === 'underline' ? '划线' : '擦除'}">${annotationActionIcon(kind)}</button>`).join('');
   toolbar.addEventListener('mousedown', (event) => event.preventDefault());
   toolbar.addEventListener('click', (event) => {
     const action = event.target.closest('button')?.dataset.annotationAction;
@@ -1462,11 +1472,33 @@ function eraseAnnotationsInSelection() {
   const article = activeSelectionViewer?.querySelector('.markdown-body');
   const selection = state.selection;
   if (!article || !selection) return;
-  const next = state.annotations.filter((annotation) => {
+  const articleText = article.textContent || '';
+  const selectionStart = Number.isFinite(selection.rawStart) ? selection.rawStart : selection.start;
+  const selectionEnd = Number.isFinite(selection.rawEnd) ? selection.rawEnd : selection.end;
+  const next = [];
+  let changed = false;
+
+  state.annotations.forEach((annotation) => {
     const position = findAnnotationPosition(article, annotation);
-    return !position || position.end <= selection.start || position.start >= selection.end;
+    if (!position || position.end <= selectionStart || position.start >= selectionEnd) {
+      next.push(annotation);
+      return;
+    }
+
+    changed = true;
+    const leftEnd = Math.min(position.end, selectionStart);
+    const rightStart = Math.max(position.start, selectionEnd);
+    if (position.start < leftEnd) {
+      const left = sliceAnnotation(annotation, articleText, position.start, leftEnd, annotationId);
+      if (left) next.push(left);
+    }
+    if (rightStart < position.end) {
+      const right = sliceAnnotation(annotation, articleText, rightStart, position.end, annotationId);
+      if (right) next.push(right);
+    }
   });
-  if (next.length === state.annotations.length) {
+
+  if (!changed) {
     state.status = '选区内没有可擦除的批注或标记';
   } else {
     recordAnnotationUndo();
@@ -1735,7 +1767,8 @@ function renderCollapseIcon() {
 }
 
 function renderCollapseWaves(side) {
-  return `<div class="collapse-waves collapse-waves-${side}" aria-hidden="true"><img class="collapse-wave-art" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""></div>`;
+  const entering = pendingWaveEntrances.delete(side);
+  return `<div class="collapse-waves collapse-waves-${side}${entering ? ' is-entering' : ''}" aria-hidden="true"><img class="collapse-wave-art" src="${escapeHtml(pluginAssetUrl('collapse-wave.png'))}" alt=""></div>`;
 }
 
 function renderReaderPane() {
@@ -1993,11 +2026,15 @@ function render() {
       }
       if (action === 'toggle-left') {
         state.leftCollapsed = !state.leftCollapsed;
+        if (state.leftCollapsed) pendingWaveEntrances.add('left');
+        else pendingWaveEntrances.delete('left');
         saveLayout();
         render();
       }
       if (action === 'toggle-right') {
         state.rightCollapsed = !state.rightCollapsed;
+        if (state.rightCollapsed) pendingWaveEntrances.add('right');
+        else pendingWaveEntrances.delete('right');
         saveLayout();
         render();
       }

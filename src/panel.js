@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.7.1';
+const PLUGIN_VERSION = '1.7.2';
 const COLLAPSED_PANEL_WIDTH = 96;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -1806,7 +1806,7 @@ function renderCopilot() {
     return `<aside class="copilot-panel is-collapsed">${renderCollapseWaves('right')}<button class="panel-collapse" data-action="toggle-right" title="展开右侧栏" aria-label="展开右侧栏">${renderCollapseIcon()}</button></aside>`;
   }
   return `<aside class="copilot-panel">
-    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
+    <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse assistant-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
     ${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}
   </aside>`;
 }

@@ -3320,6 +3320,25 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
   border-radius: 6px;
 }
 
+.assistant-switcher > .assistant-collapse {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin: 0 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.assistant-switcher > .assistant-collapse:hover:not(:disabled) {
+  color: var(--reader-control-accent);
+  background: transparent;
+  transform: none;
+}
+
 .assistant-switcher .panel-view-button {
   border-radius: 6px;
   padding: 7px 8px;

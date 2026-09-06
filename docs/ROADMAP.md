@@ -1,6 +1,6 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.7.1`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v1.7.2`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
 
@@ -187,6 +187,11 @@
 - 折叠 rail 从 64px 调整为 96px；折叠图标对齐未折叠标题栏高度，并再向中间阅读区一侧移动约 5px。
 - 折叠态隐藏 rail 边框与相邻 resizer 竖线，减少大浪构图中的硬切割。
 - 只读内容左右 padding 从 `clamp(30px, 5.8vw, 96px)` 调整为 `clamp(40px, 7.7vw, 128px)`，编辑内容与窄屏密度保持不变。
+
+## v1.7.2 统一右侧栏激活状态
+
+- 右侧折叠图标脱离 AI / Notebook 激活状态，固定尺寸与静态样式。
+- AI 与 Notebook 激活项共享同一套白底凸起和蓝光效果。
 
 ## v1.7.1 清爽蓝光与紧凑控件
 

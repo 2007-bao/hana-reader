@@ -2849,7 +2849,10 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
 .welcome-art-wrap {
   position: relative;
-  width: min(98%, 820px);
+  justify-self: center;
+  width: min(100%, 1220px);
+  max-width: 1220px;
+  min-width: 0;
 }
 
 .welcome-art {
@@ -2930,69 +2933,84 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 .collapse-wave {
   position: absolute;
   display: block;
-  width: 20px;
+  width: 34px;
   height: auto;
   object-fit: contain;
-  opacity: 0.74;
-  animation-duration: 220ms;
+  opacity: 0.88;
+  transform-origin: 50% 72%;
+  animation-duration: 240ms;
   animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   animation-fill-mode: both;
 }
 
 .collapse-wave-a { animation-delay: 0ms; }
-.collapse-wave-b { animation-delay: 38ms; }
-.collapse-wave-c { animation-delay: 76ms; }
+.collapse-wave-b { animation-delay: 55ms; }
+.collapse-wave-c { animation-delay: 110ms; }
+
+.collapse-waves-left .collapse-wave {
+  transform: rotate(var(--wave-tilt));
+}
 
 .collapse-waves-left .collapse-wave-a {
-  bottom: 22px;
-  left: 19px;
-  width: 21px;
+  top: 21%;
+  left: 11px;
+  width: 36px;
+  --wave-tilt: -7deg;
   animation-name: collapse-wave-arrive-left;
 }
 
 .collapse-waves-left .collapse-wave-b {
-  bottom: 126px;
-  left: 4px;
-  width: 17px;
+  top: 45%;
+  left: -7px;
+  width: 29px;
+  --wave-tilt: 5deg;
   animation-name: collapse-wave-arrive-left;
 }
 
 .collapse-waves-left .collapse-wave-c {
-  bottom: 70px;
-  left: 12px;
-  width: 23px;
+  bottom: 12%;
+  left: 8px;
+  width: 41px;
+  --wave-tilt: -3deg;
   animation-name: collapse-wave-arrive-left;
 }
 
+.collapse-waves-right .collapse-wave {
+  transform: scaleX(-1) rotate(var(--wave-tilt));
+}
+
 .collapse-waves-right .collapse-wave-a {
-  right: 19px;
-  bottom: 30px;
-  width: 20px;
+  top: 21%;
+  right: 11px;
+  width: 36px;
+  --wave-tilt: 7deg;
   animation-name: collapse-wave-arrive-right;
 }
 
 .collapse-waves-right .collapse-wave-b {
-  right: 4px;
-  bottom: 139px;
-  width: 18px;
+  top: 45%;
+  right: -7px;
+  width: 29px;
+  --wave-tilt: -5deg;
   animation-name: collapse-wave-arrive-right;
 }
 
 .collapse-waves-right .collapse-wave-c {
-  right: 12px;
-  bottom: 78px;
-  width: 22px;
+  bottom: 12%;
+  right: 8px;
+  width: 41px;
+  --wave-tilt: 3deg;
   animation-name: collapse-wave-arrive-right;
 }
 
 @keyframes collapse-wave-arrive-left {
-  from { opacity: 0; transform: translate3d(-4px, 2px, 0) scale(0.92); }
-  to { opacity: 0.74; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; transform: translate3d(-15px, 6px, 0) rotate(0deg) scale(0.86); }
+  to { opacity: 0.88; transform: translate3d(0, 0, 0) rotate(var(--wave-tilt)) scale(1); }
 }
 
 @keyframes collapse-wave-arrive-right {
-  from { opacity: 0; transform: translate3d(4px, 2px, 0) scaleX(-1) scale(0.92); }
-  to { opacity: 0.74; transform: translate3d(0, 0, 0) scaleX(-1) scale(1); }
+  from { opacity: 0; transform: translate3d(15px, 6px, 0) scaleX(-1) rotate(0deg) scale(0.86); }
+  to { opacity: 0.88; transform: translate3d(0, 0, 0) scaleX(-1) rotate(var(--wave-tilt)) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3003,6 +3021,6 @@ body[data-hana-theme="dark"] .notebook-delete-prompt {
 
   .collapse-wave {
     animation: none;
-    opacity: 0.7;
+    opacity: 0.78;
   }
 }

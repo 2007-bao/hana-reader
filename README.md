@@ -2,7 +2,7 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.5.2` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v1.5.3` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
 
@@ -16,6 +16,13 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 - 高亮、划线和擦除直接作用于正文，不把阅读内容挪到侧栏。
 
 所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
+
+## v1.5.3 本轮完成：放大空状态与冲浪收起栏
+
+- 初始阅读插画放大约 40%，保留中心留白和蝴蝶点击热点的相对位置。
+- 收起栏改用定制 SVG 冲浪浪花：卷起的浪峰、泡沫和飞溅水珠比旧 PNG 更清晰，左右 rail 自动镜像。
+- 三朵浪花分布在上、中、下三个高度，略微越过 rail 边界；收起时从外侧错落拍入，静止后保持安静。
+- 仍遵守 reduced-motion：关闭位移动效，只保留静态的镜像浪花。
 
 ## v1.5.2 本轮完成：透明插画与安静收起栏
 
@@ -133,4 +140,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.5.2`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v1.5.3`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。

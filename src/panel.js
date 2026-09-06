@@ -8,7 +8,8 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.5.3';
+const PLUGIN_VERSION = '1.5.4';
+const COLLAPSED_PANEL_WIDTH = 64;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
 const MAX_COPILOT_CONTEXT_CHARS = 24000;
@@ -1917,7 +1918,7 @@ function render() {
   const editorCleanup = remountSession ? destroyMarkdownEditor() : null;
   const shell = ensureWorkspaceShell();
   const workspaceBody = shell.querySelector('.workspace-body');
-  shell.style.setProperty('--right-panel-width', `${state.rightCollapsed ? 38 : state.rightWidth}px`);
+  shell.style.setProperty('--right-panel-width', `${state.rightCollapsed ? COLLAPSED_PANEL_WIDTH : state.rightWidth}px`);
   const previousTreeScroll = workspaceBody.querySelector('.tree-scroll')?.scrollTop || 0;
   const nodeIndex = new Map();
   const tree = renderTree();
@@ -1942,11 +1943,11 @@ function render() {
       ${renderCopilot()}
   `;
   if (workspaceElement) {
-    workspaceElement.style.setProperty('--left-panel-width', `${state.leftCollapsed ? 38 : state.leftWidth}px`);
-    workspaceElement.style.setProperty('--right-panel-width', `${state.rightCollapsed ? 38 : state.rightWidth}px`);
+    workspaceElement.style.setProperty('--left-panel-width', `${state.leftCollapsed ? COLLAPSED_PANEL_WIDTH : state.leftWidth}px`);
+    workspaceElement.style.setProperty('--right-panel-width', `${state.rightCollapsed ? COLLAPSED_PANEL_WIDTH : state.rightWidth}px`);
     workspaceElement.innerHTML = workspaceMarkup;
   } else {
-    workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? 38 : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? 38 : state.rightWidth}px">${workspaceMarkup}</div>`;
+    workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? COLLAPSED_PANEL_WIDTH : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? COLLAPSED_PANEL_WIDTH : state.rightWidth}px">${workspaceMarkup}</div>`;
   }
 
   bindReaderModeKnob();

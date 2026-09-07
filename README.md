@@ -24,6 +24,8 @@ Hana Reader 不是普通 Markdown 编辑器，而是一个“阅读—理解—�
 
 所有用户文件通过 Hana ResourceIO 访问；正文标记、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器本地。
 
+完整的项目定位、三天开发历程、技术结构、版本管理与安全边界见：[项目总览](docs/PROJECT_OVERVIEW.md)。
+
 ## v1.7.5 本轮完成：固定侧栏折叠前后的纵向位置
 
 - 左侧保留固定的 60px 顶部标题栏占位；折叠时只隐藏内容，不再让文件树与顶部控件上下跳动。
@@ -186,6 +188,7 @@ assets/             iframe 静态资源和构建产物
   fonts/            Maple Mono 字体
 docs/               技术记录、路线和交接文档
 tests/              manifest、渲染、编辑器和路由回归
+release-archives/   历史版本安装包归档
 COLLABORATION.md    GitHub 协作约定
 ```
 

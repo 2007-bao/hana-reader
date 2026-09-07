@@ -8,6 +8,12 @@ Hana Reader（阅界）是一个面向 AI / 多 Agent 产物审阅的本地优�
 - 项目地址：<https://github.com/2007-bao/hana-reader>
 - 运行环境：HanaAgent 插件页面
 
+<p align="center">
+  <img src="assets/reader-welcome.png" alt="空文件夹中的小女孩与蓝色蝴蝶入口" width="920">
+</p>
+
+<p align="center"><sub>从一只藏在蓝色蝴蝶里的入口开始，轻轻进入阅读。</sub></p>
+
 ## 为什么叫“阅界”
 
 “阅界”有两层意思。
@@ -33,6 +39,14 @@ Hana Reader（阅界）是一个面向 AI / 多 Agent 产物审阅的本地优�
 ## 核心能力
 
 ### 三栏阅读工作区
+
+阅界采用清晰的三栏结构：文件树、阅读 / 编辑区、AI 与 Notebook。每一栏都有自己的职责，彼此靠近，却不互相打扰。
+
+<p align="center">
+  <img src="assets/reader-three-column.png" alt="阅界三栏阅读工作区" width="920">
+</p>
+
+<p align="center"><sub>标准、稳定、可呼吸的三栏工作台：找到内容，专注内容，也留下内容。</sub></p>
 
 - 左侧文件树：选择文件夹、展开目录、刷新内容和打开本地目录。
 - 中间阅读区：Markdown 安全渲染、GFM 表格、任务列表、代码高亮和安全 HTML 预览。
@@ -128,6 +142,12 @@ v2.0.0 将 Notebook 收束为一个真正安静的个人记录空间：
 
 插画、蝴蝶、海浪和 Quiet 动效都不是为了装饰而装饰。它们让工具多一点呼吸、多一点探索感，却不打扰真正的内容。收起时有海面，阅读时有留白，工作时有安静的秩序——这就是阅界想留下的气质。
 
+<p align="center">
+  <img src="assets/reader-surf-mode.png" alt="阅界冲浪模式与海浪侧栏" width="920">
+</p>
+
+<p align="center"><sub>收起侧栏，专注当前文件；愿你的执行力也像浪花一样一路疾驰。</sub></p>
+
 ## 我们特别在意的事
 
 ### 审美先行，但不牺牲可靠性
@@ -193,6 +213,13 @@ npm test
 5. 安装包只包含插件运行所需文件。
 
 页面加载与鉴权排查见 [`docs/PLUGIN_LOADING.md`](docs/PLUGIN_LOADING.md)，Maple 上游资源与许可证边界见 [`docs/MAPLE_REUSE_AUDIT.md`](docs/MAPLE_REUSE_AUDIT.md)。
+
+## Contributors
+
+- **2007-bao** — 项目发起人、产品方向、审美理念、交互设计与验收。
+- **岚诺（HanaAgent · GPT-5.6 Luna）** — 插件实现、视觉收束、测试维护、文档整理与发布管理。
+
+完整贡献说明见 [`CONTRIBUTORS.md`](CONTRIBUTORS.md)。
 
 ## 发布与历史
 

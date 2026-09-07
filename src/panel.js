@@ -8,7 +8,7 @@ const PROTOCOL = 'hana.plugin.ui';
 const VERSION = 1;
 const SURFACE_SESSION_QUERY = 'pluginSurfaceSession';
 const SURFACE_SESSION_HEADER = 'X-Hana-Plugin-Surface-Session';
-const PLUGIN_VERSION = '1.7.5';
+const PLUGIN_VERSION = '2.0.0';
 const COLLAPSED_PANEL_WIDTH = 96;
 const READER_MODE_SETTLE_MS = 260;
 const MAX_EDIT_BYTES = 512 * 1024;
@@ -38,6 +38,25 @@ const readerModeKnobBindings = new WeakSet();
 const readerModeKeyBindings = new WeakSet();
 const actionBindings = new WeakSet();
 const pendingWaveEntrances = new Set();
+
+// Quiet motion v2: token-based, interruptible CSS entrances after innerHTML swaps.
+// New nodes own their starting style; exits are kept briefly for a real handoff.
+const QUIET_TREE_COLLAPSE_MS = 210;
+const pendingTreeCollapseTimers = new Map();
+const collapsingDirs = new Set();
+let quietReadingSwap = false;
+let quietRightPaneSwap = false;
+let quietNotebookBodySwap = false;
+let quietSelectionSwap = false;
+let lastReadingFingerprint = null;
+let lastReadingRenderWasEditor = false;
+let lastRightViewFingerprint = null;
+let lastNotebookBodyFingerprint = null;
+let lastSelectedNodeId = null;
+let hasRenderedOnce = false;
+let expandedDirsRendered = new Set();
+let currentPassExpandedDirs = new Set();
+
 const parentWindow = window.parent;
 const targetOrigin = resolveTargetOrigin();
 
@@ -840,7 +859,26 @@ function toggleDirectory(node) {
     loadDirectory(node);
     return;
   }
-  node.expanded = !node.expanded;
+  const wasExpanded = node.expanded;
+  const collapseTimer = pendingTreeCollapseTimers.get(node.id);
+  if (collapseTimer) {
+    window.clearTimeout(collapseTimer);
+    pendingTreeCollapseTimers.delete(node.id);
+  }
+  if (wasExpanded) {
+    collapsingDirs.add(node.id);
+    node.expanded = false;
+    render();
+    const timer = window.setTimeout(() => {
+      pendingTreeCollapseTimers.delete(node.id);
+      collapsingDirs.delete(node.id);
+      if (!node.expanded) render();
+    }, QUIET_TREE_COLLAPSE_MS);
+    pendingTreeCollapseTimers.set(node.id, timer);
+    return;
+  }
+  collapsingDirs.delete(node.id);
+  node.expanded = true;
   render();
 }
 
@@ -850,13 +888,17 @@ function renderTreeNode(node, depth) {
   const action = directory ? 'toggle' : 'open';
   const iconType = directory ? `folder ${node.expanded ? 'open' : 'closed'}` : fileIconType(node.name);
   const disabled = node.unsupported ? ' disabled' : '';
-  const nested = directory && node.expanded
-    ? `<div class="tree-nested" style="--nested-depth:${depth}">${node.items.length
+  const justExpanded = directory && node.expanded && !expandedDirsRendered.has(node.id);
+  const justCollapsed = directory && !node.expanded && collapsingDirs.has(node.id);
+  if (directory && node.expanded) currentPassExpandedDirs.add(node.id);
+  const showNested = directory && (node.expanded || justCollapsed);
+  const nested = showNested
+    ? `<div class="tree-nested-shell${justExpanded ? ' quiet-tree-enter q-enter-from' : ''}${justCollapsed ? ' quiet-tree-exit' : ''}"><div class="tree-nested" style="--nested-depth:${depth}">${node.items.length
       ? node.items.map((child) => renderTreeNode(child, depth + 1)).join('')
-      : '<div class="tree-empty">空文件夹</div>'}</div>`
+      : '<div class="tree-empty">空文件夹</div>'}</div></div>`
     : '';
 
-  return `<button class="tree-row ${directory ? 'directory' : ''}${depth === 0 ? ' tree-root' : ''} ${selected ? 'selected' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" data-depth="${depth}" style="--depth:${depth}" title="${escapeHtml(node.name)}" role="treeitem" aria-expanded="${directory ? String(Boolean(node.expanded)) : 'false'}"${selected ? ' aria-current="page"' : ''}>
+  return `<button class="tree-row ${directory ? 'directory' : ''}${depth === 0 ? ' tree-root' : ''} ${selected ? 'selected' : ''}${selected && quietSelectionSwap ? ' quiet-selection-enter q-enter-from' : ''}${disabled}" data-action="${action}" data-node-id="${node.id}" data-depth="${depth}" style="--depth:${depth}" title="${escapeHtml(node.name)}" role="treeitem" aria-expanded="${directory ? String(Boolean(node.expanded)) : 'false'}"${selected ? ' aria-current="page"' : ''}>
     <span class="tree-icon ${iconType}" aria-hidden="true">${treeIconSvg(directory, node.expanded, iconType)}</span>
     <span class="tree-name">${escapeHtml(node.name)}</span>
     <span class="tree-size">${node.isDirectory ? '' : escapeHtml(formatSize(node.size))}</span>
@@ -978,6 +1020,19 @@ async function stopEditing() {
 
 function prefersReducedMotion() {
   return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
+
+function runQuietEntrances() {
+  const enters = root?.querySelectorAll('.q-enter-from');
+  const exits = root?.querySelectorAll('.quiet-tree-exit');
+  if ((!enters || !enters.length) && (!exits || !exits.length)) return;
+  if (!prefersReducedMotion() && enters?.length) {
+    void root.offsetWidth;
+    enters.forEach((element) => element.classList.remove('q-enter-from'));
+  } else {
+    enters?.forEach((element) => element.classList.remove('q-enter-from'));
+  }
+  if (!prefersReducedMotion()) exits?.forEach((element) => element.classList.add('q-exit-to'));
 }
 
 function setEmbeddedKnobState(object, nextState, animate = false, options = {}) {
@@ -1799,7 +1854,7 @@ function renderReaderPane() {
   const htmlAction = current.language === 'html' && byteLength(current.content) <= MAX_EDIT_BYTES
     ? `<button class="button ghost" data-action="toggle-html-preview">${current.htmlPreview ? '源码' : '预览'}</button>`
     : '';
-  return `<div class="reader-surface"><div class="reader-inline-actions">${htmlAction}</div><div class="viewer-scroll">${body}</div></div>`;
+  return `<div class="reader-surface"><div class="reader-inline-actions">${htmlAction}</div><div class="viewer-scroll${quietReadingSwap ? ' quiet-view-enter q-enter-from' : ''}">${body}</div></div>`;
 }
 
 function renderCopilot() {
@@ -1808,7 +1863,7 @@ function renderCopilot() {
   }
   return `<aside class="copilot-panel">
     <div class="assistant-switcher" role="tablist" aria-label="右侧工具"><button class="panel-collapse side-collapse-control assistant-collapse" data-action="toggle-right" title="折叠右侧栏" aria-label="折叠右侧栏">${renderCollapseIcon()}</button><button class="panel-view-button ${state.rightView === 'ai' ? 'active' : ''}" data-action="show-ai" role="tab" aria-selected="${state.rightView === 'ai'}">AI 辅助</button><button class="panel-view-button ${state.rightView === 'notebook' ? 'active' : ''}" data-action="show-notebook" role="tab" aria-selected="${state.rightView === 'notebook'}">笔记本</button></div>
-    ${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}
+    <div class="assistant-pane-slot">${state.rightView === 'notebook' ? renderNotebookPanel() : renderCopilotPanel()}</div>
   </aside>`;
 }
 
@@ -1832,21 +1887,39 @@ function renderCopilotPanel() {
     <div class="copilot-message-label">${message.role === 'assistant' ? 'AI' : '你'}</div>
     <div class="copilot-message-body">${message.role === 'assistant' ? renderAssistantText(message.content) : `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`}</div>
   </div>`).join('');
-  return `<div class="copilot-content">
+  return `<div class="copilot-content${quietRightPaneSwap ? ' quiet-pane-enter q-enter-from' : ''}">
     <div class="copilot-scroll" role="log" aria-live="polite">${messages || `<div class="copilot-empty compact"><img class="copilot-empty-art" src="${escapeHtml(pluginAssetUrl('copilot-empty.png'))}" alt="AI 辅助"></div>`}${copilot.pendingPrompt ? `<div class="copilot-message user pending"><div class="copilot-message-label">你</div><div class="copilot-message-body"><p>${escapeHtml(copilot.pendingPrompt)}</p><span class="copilot-thinking">正在思考…</span></div></div>` : ''}</div>
     ${copilot.error ? `<div class="copilot-error"><span>${escapeHtml(copilot.error)}</span><button class="button tiny" data-action="retry-copilot" ${copilot.busy || !copilot.lastRequest ? 'disabled' : ''}>重试</button></div>` : ''}
     <div class="copilot-composer"><textarea data-copilot-prompt rows="1" placeholder="询问当前文件……" ${copilot.busy ? 'disabled' : ''}>${escapeHtml(copilot.prompt)}</textarea><button class="copilot-send" data-action="copilot-submit" aria-label="发送" title="发送（Enter）" ${copilot.busy ? 'disabled' : ''}>${copilot.busy ? '…' : '↑'}</button></div>
   </div>`;
 }
 
-function renderNotebookPanel() {
+function renderNotebookPanelLegacy() {
   const notebook = activeNotebook();
-  if (!notebook) return '<div class="copilot-empty"><p>尚未创建笔记本。</p><button class="button primary tiny" data-action="new-notebook">新建笔记本</button></div>';
+  if (!notebook) return `<div class="copilot-empty${quietRightPaneSwap ? ' quiet-pane-enter q-enter-from' : ''}"><p>尚未创建笔记本。</p><button class="button primary tiny" data-action="new-notebook">新建笔记本</button></div>`;
   const deleteTarget = state.notebooks.find((item) => item.id === state.notebookDeleteId);
   const deletePrompt = deleteTarget
     ? `<div class="notebook-delete-prompt" role="alert"><span>删除“${escapeHtml(deleteTarget.title)}”？</span><button class="button danger tiny" data-action="confirm-delete-notebook" data-notebook-id="${escapeHtml(deleteTarget.id)}">删除</button><button class="button ghost tiny" data-action="cancel-delete-notebook">取消</button></div>`
     : '';
-  return `<div class="notebook-wrap"><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}" title="右键删除">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button><button class="button danger tiny" data-action="request-delete-active-notebook" title="删除当前笔记本">删除</button></div><textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div>`;
+  return `<div class="notebook-wrap${quietRightPaneSwap ? ' quiet-pane-enter q-enter-from' : ''}><div class="notebook-list">${state.notebooks.map((item) => `<button class="notebook-tab ${item.id === notebook.id ? 'active' : ''}" data-action="select-notebook" data-notebook-id="${escapeHtml(item.id)}" title="右键删除">${escapeHtml(item.title)}</button>`).join('')}<button class="notebook-tab add" data-action="new-notebook" title="添加笔记本" aria-label="添加笔记本">＋</button></div>${deletePrompt}<div class="notebook-pane-slot"><div class="notebook-pane-body${quietNotebookBodySwap ? ' quiet-notebook-body-enter q-enter-from' : ''}><div class="notebook-toolbar"><input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称"><button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button><button class="button danger tiny" data-action="request-delete-active-notebook" title="删除当前笔记本">删除</button></div><textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea></div></div></div>`;
+}
+
+function renderNotebookPanel() {
+  const notebook = activeNotebook();
+  if (!notebook) return `<div class="copilot-empty${quietRightPaneSwap ? ' quiet-pane-enter q-enter-from' : ''}"><p>笔记本暂不可用。</p></div>`;
+  return `<div class="notebook-wrap${quietRightPaneSwap ? ' quiet-pane-enter q-enter-from' : ''}">
+    <div class="notebook-pane-body${quietNotebookBodySwap ? ' quiet-notebook-body-enter q-enter-from' : ''}">
+      <div class="notebook-toolbar">
+        <input class="notebook-title" data-notebook-title value="${escapeHtml(notebook.title)}" aria-label="笔记本名称">
+        <button class="button tiny" data-action="export-notebook-resource" title="选择一个已有文本文件并覆盖导出">导出</button>
+      </div>
+      <div class="notebook-note-art-wrap" aria-hidden="true"><img class="notebook-note-art" src="${escapeHtml(pluginAssetUrl('notebook-note.png'))}" alt=""></div>
+      <div class="notebook-editor-wrap">
+        <img class="notebook-bg-art" src="${escapeHtml(pluginAssetUrl('notebook-bg.png'))}" alt="">
+        <textarea class="notebook-editor" data-notebook placeholder="在这里记录……">${escapeHtml(state.notebookText)}</textarea>
+      </div>
+    </div>
+  </div>`;
 }
 
 let resizeCleanup = null;
@@ -1950,12 +2023,54 @@ function requestStableSurfaceResize() {
   hana.ui.resize({ height });
 }
 
+function preserveAssistantShell(previousPanel, nextPanel) {
+  if (!previousPanel || !nextPanel) return nextPanel;
+  const previousSwitcher = previousPanel.querySelector('.assistant-switcher');
+  const nextSwitcher = nextPanel.querySelector('.assistant-switcher');
+  const previousSlot = previousPanel.querySelector('.assistant-pane-slot');
+  const nextSlot = nextPanel.querySelector('.assistant-pane-slot');
+  if (!previousSwitcher || !nextSwitcher || !previousSlot || !nextSlot) return nextPanel;
+
+  previousSwitcher.querySelectorAll('.panel-view-button').forEach((button) => {
+    const active = button.dataset.action === (state.rightView === 'notebook' ? 'show-notebook' : 'show-ai');
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+
+  const previousNotebookList = previousSlot.querySelector('.notebook-list');
+  const nextNotebookList = nextSlot.querySelector('.notebook-list');
+  if (previousNotebookList && nextNotebookList && previousNotebookList.children.length === nextNotebookList.children.length) {
+    previousNotebookList.querySelectorAll('[data-action="select-notebook"]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.notebookId === state.activeNotebookId);
+    });
+    nextNotebookList.replaceWith(previousNotebookList);
+  }
+
+  previousSlot.className = nextSlot.className;
+  previousSlot.innerHTML = nextSlot.innerHTML;
+  nextPanel.replaceWith(previousPanel);
+  return previousPanel;
+}
+
 function render() {
   if (!root) return;
   const remountSession = !suppressEditorRemount && !state.busy && state.editing && state.current && (
     activeMarkdownEditor || pendingMarkdownEditor || root.querySelector('#source-editor') || root.querySelector('#markdown-editor .ProseMirror')
   ) ? state.current : null;
   suppressEditorRemount = false;
+  currentPassExpandedDirs = new Set();
+  quietReadingSwap = false;
+  quietRightPaneSwap = false;
+  quietNotebookBodySwap = false;
+  quietSelectionSwap = Boolean(state.current?.node?.id && state.current.node.id !== lastSelectedNodeId);
+  const readingFingerprint = !state.editing && state.current
+    ? `${state.current.node.id}|${state.current.name}|${state.current.language}|${String(state.current.binary)}|${String(state.current.htmlPreview)}|${state.current.version?.etag || state.current.version?.mtimeMs || state.current.baseSha256 || state.current.content}`
+    : null;
+  quietReadingSwap = Boolean(hasRenderedOnce && readingFingerprint && !lastReadingRenderWasEditor && readingFingerprint !== lastReadingFingerprint);
+  const rightViewNow = state.rightCollapsed ? null : state.rightView;
+  quietRightPaneSwap = Boolean(hasRenderedOnce && rightViewNow && rightViewNow !== lastRightViewFingerprint);
+  const notebookBodyNow = state.rightCollapsed || state.rightView !== 'notebook' ? null : String(state.activeNotebookId);
+  quietNotebookBodySwap = Boolean(hasRenderedOnce && notebookBodyNow && !quietRightPaneSwap && notebookBodyNow !== lastNotebookBodyFingerprint);
   const editorCleanup = remountSession ? destroyMarkdownEditor() : null;
   const shell = ensureWorkspaceShell();
   const workspaceBody = shell.querySelector('.workspace-body');
@@ -1972,6 +2087,7 @@ function render() {
   collect(state.rootNode);
 
   const workspaceElement = workspaceBody.querySelector('.workspace');
+  const previousAssistantPanel = workspaceElement?.querySelector('.copilot-panel:not(.is-collapsed)');
   const workspaceMarkup = `
       <aside class="file-panel${state.leftCollapsed ? ' is-collapsed' : ''}">
         <div class="panel-heading"><img class="file-panel-brand" src="${escapeHtml(pluginAssetUrl('file-panel-header.svg'))}" alt="文件栏"><div class="panel-heading-actions"><button class="panel-tool" data-action="open-folder" ${state.rootNode && !state.busy && !state.restoring ? '' : 'disabled'} title="在本地文件资源管理器中打开" aria-label="在本地文件资源管理器中打开">↗</button><button class="panel-tool" data-action="pick" ${state.busy || state.restoring ? 'disabled' : ''} title="选择文件夹" aria-label="选择文件夹">＋</button>${state.leftCollapsed ? '' : `<button class="panel-collapse side-collapse-control" data-action="toggle-left" title="折叠文件树" aria-label="折叠文件树">${renderCollapseIcon()}</button>`}</div></div>
@@ -1989,6 +2105,11 @@ function render() {
     workspaceElement.innerHTML = workspaceMarkup;
   } else {
     workspaceBody.innerHTML = `<div class="workspace" style="--left-panel-width:${state.leftCollapsed ? COLLAPSED_PANEL_WIDTH : state.leftWidth}px;--right-panel-width:${state.rightCollapsed ? COLLAPSED_PANEL_WIDTH : state.rightWidth}px">${workspaceMarkup}</div>`;
+  }
+
+  if (!state.rightCollapsed && previousAssistantPanel) {
+    const nextAssistantPanel = workspaceBody.querySelector('.copilot-panel:not(.is-collapsed)');
+    preserveAssistantShell(previousAssistantPanel, nextAssistantPanel);
   }
 
   bindReaderModeKnob();
@@ -2141,6 +2262,15 @@ function render() {
     viewer.addEventListener('mouseup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
     viewer.addEventListener('keyup', () => window.setTimeout(() => captureViewerSelection(viewer), 0));
   }
+
+  expandedDirsRendered = currentPassExpandedDirs;
+  lastReadingFingerprint = readingFingerprint;
+  lastReadingRenderWasEditor = Boolean(state.editing && state.current);
+  lastRightViewFingerprint = rightViewNow;
+  lastNotebookBodyFingerprint = notebookBodyNow;
+  lastSelectedNodeId = state.current?.node?.id || null;
+  hasRenderedOnce = true;
+  runQuietEntrances();
 
   requestAnimationFrame(async () => {
     requestStableSurfaceResize();

@@ -2,9 +2,16 @@
 
 一个面向 AI / 多 Agent 产物审阅的 Hana 本地优先阅读工作台。
 
-> 当前版本：`v1.7.5` · 插画化三栏阅读、编辑、AI 辅助、Notebook 与正文标记
+> 当前版本：`v2.0.0` · 单笔记本工作台、Quiet 动效三栏阅读、编辑、AI 辅助与正文标记
 >
 > GitHub：<https://github.com/2007-bao/hana-reader>
+
+## v2.0.0 本轮完成：单笔记本工作台
+
+- 右侧 Notebook 收束为唯一笔记本，不再展示新建、删除和笔记本切换入口。
+- 顶部改为“笔记名称 + 导出”单行工具栏，下方加入记笔记插画。
+- 编辑区加入约 50% 透明度的笔记本背景图，保持内容可读性与轻量层次。
+- 图片素材统一纳入 `assets/`，并通过插件资源 URL 加载。
 
 ## 项目定位
 
@@ -194,4 +201,4 @@ COLLABORATION.md    GitHub 协作约定
 
 默认流程：`Issue → feat/fix 分支 → 有意义的 Commit → PR → 本地验证 → 合并 main → 标签与安装包`。
 
-当前本地目标：`feat/reader-visual-simplification` / `v1.7.5`；稳定基线：`main` / `v0.9.0`。本轮只做本地提交，不自动推送或合并。
+当前本地目标：`feat/reader-visual-simplification` / `v2.0.0`；稳定基线：`main` / `v0.9.0`。本轮完成本地提交与发布压缩包，不自动推送或合并。

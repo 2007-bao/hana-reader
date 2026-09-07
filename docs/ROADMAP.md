@@ -1,8 +1,14 @@
 # Hana Reader 后续路线
 
-当前版本：`v1.7.5`（本地分支 `feat/reader-visual-simplification`）
+当前版本：`v2.0.0`（本地分支 `feat/reader-visual-simplification`）
 
 本路线只记录真实边界和下一阶段工作。所有后续能力都必须保持本地优先、ResourceIO 安全边界和清爽的 Hana 蓝视觉体系。
+
+## v2.0.0 已完成：单笔记本工作台
+
+- Notebook 前端收束为唯一笔记本，移除新建、删除与切换入口。
+- 新增笔记名称 / 导出工具栏、记笔记插画和半透明笔记本背景素材。
+- 保留本地保存与 ResourceIO 安全导出能力。
 
 ## v1.2.0 已完成：视觉与交互收束
 

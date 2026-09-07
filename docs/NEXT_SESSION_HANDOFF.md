@@ -5,9 +5,9 @@
 - 项目：Hana Reader
 - 仓库：<https://github.com/2007-bao/hana-reader>
 - 当前本地分支：`feat/reader-visual-simplification`
-- 当前版本：`v1.7.5`
+- 当前版本：`v2.0.0`
 - 稳定基线：`main` / `v0.9.0`
-- 当前目标：完成只读批注工具、右栏胶囊化、海浪触发收束与稳定阅读 dock 的宿主内手测和本地发布包验收
+- 当前目标：维护 v2.0.0 本地发布包，并完成单笔记本工作台的宿主内手测
 - `knob-motion-lab/` 是独立的旋钮实验源目录；当前插件只维护复制后的 `assets/native-knob.svg`，不把实验目录纳入构建
 
 ## 本阶段已经完成
@@ -56,7 +56,8 @@
 ### AI 与 Notebook
 
 - AI 默认提交当前文件和对话历史；不再显示预设、上下文长度和显式选区上下文选项。
-- Notebook 只提供选择、新建、改名、直接编辑和 Markdown 导出。
+- v2.0.0 的 Notebook 仅保留一个笔记本：顶部为笔记名称与导出，下面是记笔记插画、带半透明笔记本背景的编辑区。
+- Notebook 保留本地保存与 Markdown 导出；前端不再显示新建、删除和笔记本切换入口。
 - 批注、Notebook、会话位置和 Copilot 历史默认保存在本地浏览器。
 
 ### 服务端保留能力
@@ -75,13 +76,14 @@
 
 ## 下一步建议
 
-1. 先运行 `npm test`，确认版本检查、构建和顺序测试全部通过。
-2. 查看 `git diff --stat` 与 `git status --short -- . ':(exclude)knob-motion-lab'`，确认变更范围。
-3. 只在本地创建有意义的 commit；未经负责人确认不要 push、建 PR、合并或发布标签。
-4. 当前旋钮集成仍是未单独发布的实验功能；若继续调整，优先只改 `src/panel.js`、`assets/panel.css` 和 `assets/native-knob.svg`。
-5. 后续再考虑批注 / Notebook 导入导出、轻量阅读历史和长文档性能。
-6. 清理死 CSS 前先生成选择器使用清单；不要直接删除可能被后续 UI 复用的规则。
-7. 宿主 dev loop 恢复后手测：打开 Markdown → 旋钮切换只读 / 编辑 → 选区批注 / 悬浮气泡 → Ctrl-Z；编辑 → 自动保存 → Ctrl-Z；AI 提问；Notebook 编辑 / 导出；打开本地目录。
+1. Quiet 动效 v2（子树展开 / 阅读内容 / 右栏与 Notebook 交接）已在当前工作区实现但**未做宿主手测、未发布**：手测清单见 `docs/QUIET_MOTION_V2.md`。
+2. 先运行 `npm test`，确认版本检查、构建和顺序测试全部通过。
+3. 查看 `git diff --stat` 与 `git status --short -- . ':(exclude)knob-motion-lab'`，确认变更范围。
+4. 只在本地创建有意义的 commit；未经负责人确认不要 push、建 PR、合并或发布标签。
+5. 当前旋钮集成仍是未单独发布的实验功能；若继续调整，优先只改 `src/panel.js`、`assets/panel.css` 和 `assets/native-knob.svg`。
+6. 后续再考虑批注 / Notebook 导入导出、轻量阅读历史和长文档性能。
+7. 清理死 CSS 前先生成选择器使用清单；不要直接删除可能被后续 UI 复用的规则。
+8. 宿主 dev loop 恢复后手测：打开 Markdown → 旋钮切换只读 / 编辑 → 选区批注 / 悬浮气泡 → Ctrl-Z；编辑 → 自动保存 → Ctrl-Z；AI 提问；Notebook 编辑 / 导出；打开本地目录。
 
 ## 关键实现入口
 

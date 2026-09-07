@@ -10,13 +10,13 @@ async function readJson(relativePath) {
   return JSON.parse(content);
 }
 
-test('manifest declares the v1.7.5 reader page with guarded resource access', async () => {
+test('manifest declares the v2.0.0 reader page with guarded resource access', async () => {
   const manifest = await readJson('manifest.json');
   const packageJson = await readJson('package.json');
   const lockJson = await readJson('package-lock.json');
 
   assert.equal(manifest.id, 'hana-reader');
-  assert.equal(manifest.version, '1.7.5');
+  assert.equal(manifest.version, '2.0.0');
   assert.equal(packageJson.version, manifest.version);
   assert.equal(lockJson.version, manifest.version);
   assert.equal(manifest.trust, 'full-access');
@@ -57,6 +57,8 @@ test('reader source, built assets, and cache-busting route are present', async (
     'assets/reader-empty.png',
     'assets/copilot-empty.png',
     'assets/file-panel-header.svg',
+    'assets/notebook-note.png',
+    'assets/notebook-bg.png',
     'assets/fonts/MapleMono-Regular.woff2',
     'assets/fonts/MapleMono-Italic.woff2',
     'assets/fonts/OFL.txt',
@@ -76,10 +78,12 @@ test('reader source, built assets, and cache-busting route are present', async (
   const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
   assert.ok(!panelSource.includes("from './hana-bridge.js'"));
   assert.match(panelSource, /render\(\);\s*hana\.ready\(/);
+  assert.match(panelSource, /notebook-note\.png/);
+  assert.match(panelSource, /notebook-bg\.png/);
   assert.match(panelBundle, /markdown-it/);
   assert.match(route, /unhandledrejection/);
   assert.match(route, /const token = c\.req\.query\('token'\)/);
-  assert.match(route, /ASSET_REVISION = '1\.7\.5'/);
+  assert.match(route, /ASSET_REVISION = '2\.0\.0'/);
   assert.match(route, /withAssetQuery/);
   assert.match(route, /params\.set\('token', token\)/);
   assert.match(route, /app\.post\('\/resources\/search'/);
@@ -89,7 +93,7 @@ test('reader source, built assets, and cache-busting route are present', async (
   assert.match(route, /app\.post\('\/copilot\/ask'/);
   assert.match(route, /model:sample-text/);
   assert.match(route, /writeExpectedVersion/);
-  assert.match(panelSource, /const PLUGIN_VERSION = '1.7.5'/);
+  assert.match(panelSource, /const PLUGIN_VERSION = '2.0.0'/);
   assert.match(panelSource, /mountMarkdownEditor/);
   assert.match(panelSource, /resources\/write/);
   assert.doesNotMatch(panelSource, /createLineDiff/);
@@ -347,4 +351,56 @@ test('mature Markdown and syntax engines are locally bundled with safe defaults'
   assert.match(css, /--maple-line-height-tight: 1\.35/);
   assert.match(css, /\.token-number,[\s\S]*font-family: var\(--reader-ui-font\)/);
   assert.match(css, /\.markdown-body \.hljs-string/);
+});
+
+test('quiet motion v2 tokens stay local, token-based, and reduced-motion aware', async () => {
+  const panel = await fs.readFile(path.join(root, 'src/panel.js'), 'utf8');
+  const css = await fs.readFile(path.join(root, 'assets/panel.css'), 'utf8');
+
+  assert.match(panel, /runQuietEntrances/);
+  assert.match(panel, /quietReadingSwap/);
+  assert.match(panel, /quietRightPaneSwap/);
+  assert.match(panel, /quietNotebookBodySwap/);
+  assert.match(panel, /currentPassExpandedDirs/);
+  assert.match(panel, /expandedDirsRendered/);
+  assert.match(panel, /lastReadingFingerprint/);
+  assert.match(panel, /baseSha256/);
+  assert.match(panel, /hasRenderedOnce/);
+  assert.doesNotMatch(panel, /QUIET_ENTRANCE_GUARD_MS|lastQuietEntranceAt/);
+  assert.match(panel, /quiet-tree-enter/);
+  assert.match(panel, /quiet-tree-exit/);
+  assert.match(panel, /collapsingDirs/);
+  assert.match(panel, /QUIET_TREE_COLLAPSE_MS = 210/);
+  assert.match(panel, /quiet-selection-enter/);
+  assert.match(panel, /lastSelectedNodeId/);
+  assert.match(panel, /quiet-view-enter/);
+  assert.match(panel, /quiet-pane-enter/);
+  assert.match(panel, /quiet-notebook-body-enter/);
+  assert.match(panel, /notebook-pane-body/);
+  assert.match(panel, /assistant-pane-slot/);
+  assert.match(panel, /notebook-pane-slot/);
+  assert.match(panel, /preserveAssistantShell/);
+  assert.match(panel, /classList\.add\('q-exit-to'\)/);
+  assert.match(css, /@starting-style/);
+
+  const quietSection = css.slice(css.indexOf('Quiet motion v2'));
+  assert.match(css, /--ease-out: cubic-bezier\(\.23, 1, \.32, 1\)/);
+  assert.match(css, /--ease-in-out: cubic-bezier\(\.77, 0, \.175, 1\)/);
+  assert.match(css, /\.tree-nested-shell/);
+  assert.match(css, /grid-template-rows 210ms/);
+  assert.match(css, /\.quiet-tree-enter/);
+  assert.match(css, /\.quiet-tree-exit/);
+  assert.match(css, /\.quiet-view-enter/);
+  assert.match(css, /\.quiet-pane-enter/);
+  assert.match(css, /\.quiet-notebook-body-enter/);
+  assert.match(css, /\.assistant-pane-slot/);
+  assert.match(css, /\.notebook-pane-slot/);
+  assert.match(css, /\.notebook-pane-body/);
+  assert.match(quietSection, /@starting-style/);
+  assert.doesNotMatch(quietSection, /@keyframes/);
+  assert.doesNotMatch(quietSection, /transition:\s*all\s*;/);
+  assert.doesNotMatch(quietSection, /scale\(0\)/);
+  assert.doesNotMatch(quietSection, /requestAnimationFrame/);
+  assert.match(css, /transition: opacity var\(--quiet-duration\) var\(--ease-out\), transform var\(--quiet-duration\) var\(--ease-out\)/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.quiet-tree-enter,[\s\S]*transition: none/);
 });

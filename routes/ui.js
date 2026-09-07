@@ -8,7 +8,7 @@ const MAX_SEARCH_DIRECTORIES = 1000;
 const MAX_SEARCH_RESULTS = 100;
 const MAX_SEARCH_FILE_BYTES = 1024 * 1024;
 const MAX_SEARCH_TOTAL_BYTES = 8 * 1024 * 1024;
-const ASSET_REVISION = '1.7.5';
+const ASSET_REVISION = '2.0.0';
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get('/page', (c) => c.html(renderShell(c, ctx)));

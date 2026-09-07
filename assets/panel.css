@@ -281,6 +281,14 @@ select:focus-visible {
   border-left: 1px solid var(--reader-divider);
 }
 
+.assistant-pane-slot,
+.notebook-pane-slot {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
 .panel-heading {
   display: flex;
   align-items: flex-end;
@@ -370,6 +378,7 @@ select:focus-visible {
   text-align: left;
   background: transparent;
   cursor: pointer;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
 }
 
 .tree-row:hover {
@@ -391,6 +400,11 @@ select:focus-visible {
   color: var(--reader-muted);
   font-size: 13px;
   line-height: 1;
+  transition: color 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.tree-row.directory:active .tree-icon {
+  transform: translateY(1px);
 }
 
 .tree-icon.folder {
@@ -411,6 +425,20 @@ select:focus-visible {
   padding-left: 4px;
   color: var(--reader-muted);
   font-size: 10px;
+}
+
+.tree-nested-shell {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: grid-template-rows 210ms var(--ease-out), opacity 180ms var(--ease-out), transform 210ms var(--ease-out);
+}
+
+.tree-nested-shell > .tree-nested {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .tree-nested {
@@ -3497,4 +3525,234 @@ body[data-hana-theme="dark"] .editor-scroll {
 body[data-hana-theme="dark"] .file-panel,
 body[data-hana-theme="dark"] .copilot-panel {
   background: #1d2634;
+}
+
+/* Quiet motion v2: token-based, interruptible CSS entrances after innerHTML swaps.
+   Scoped to subtree expand, reading-content swap, and right-side pane/tab handoffs.
+   Budget: only opacity + tiny transform, 160-200ms, ease-out; reduced-motion disables. */
+:root {
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --quiet-duration: 180ms;
+}
+
+.quiet-tree-enter {
+  transition: grid-template-rows 210ms var(--ease-out), opacity 190ms var(--ease-out), transform 210ms var(--ease-out);
+}
+
+.quiet-view-enter,
+.quiet-pane-enter,
+.quiet-notebook-body-enter {
+  transition: opacity var(--quiet-duration) var(--ease-out), transform var(--quiet-duration) var(--ease-out);
+}
+
+.quiet-pane-enter {
+  transition-duration: 200ms;
+}
+
+/* The start state exists when the new DOM node is inserted. */
+@starting-style {
+  .quiet-tree-enter {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translate3d(0, -5px, 0);
+  }
+
+  .quiet-view-enter {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+
+  .quiet-pane-enter,
+  .quiet-notebook-body-enter {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0);
+  }
+
+  .quiet-selection-enter {
+    color: var(--reader-text);
+    background-color: transparent;
+  }
+}
+
+.quiet-tree-exit {
+  pointer-events: none;
+}
+
+.q-exit-to.quiet-tree-exit {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translate3d(0, -5px, 0);
+}
+
+.quiet-selection-enter {
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.q-enter-from {
+  opacity: 0;
+}
+
+.q-enter-from.quiet-tree-enter {
+  grid-template-rows: 0fr;
+  transform: translate3d(0, -5px, 0);
+}
+
+.q-enter-from.quiet-view-enter {
+  transform: translate3d(0, 6px, 0);
+}
+
+.q-enter-from.quiet-pane-enter,
+.q-enter-from.quiet-notebook-body-enter {
+  transform: translate3d(0, 7px, 0);
+}
+
+.q-enter-from.quiet-selection-enter {
+  opacity: 1;
+  color: var(--reader-text);
+  background-color: transparent;
+}
+
+.notebook-pane-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiet-tree-enter,
+  .quiet-tree-exit,
+  .tree-nested-shell,
+  .quiet-view-enter,
+  .quiet-pane-enter,
+  .quiet-notebook-body-enter {
+    transition: none;
+  }
+
+  .q-enter-from,
+  .q-exit-to {
+    opacity: 1 !important;
+    transform: none !important;
+    grid-template-rows: 1fr !important;
+  }
+}
+
+/* Single notebook presentation: title row, quiet illustration, and translucent paper. */
+.notebook-wrap {
+  padding: 14px 14px 18px;
+  overflow: hidden;
+}
+
+.notebook-pane-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notebook-toolbar {
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.notebook-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 1px solid var(--reader-control-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--reader-text);
+  background: color-mix(in srgb, var(--reader-card) 82%, transparent);
+  font-size: 13px;
+}
+
+.notebook-toolbar .button {
+  flex: 0 0 auto;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--reader-control-accent);
+  background: var(--reader-card);
+}
+
+.notebook-note-art-wrap {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  align-items: center;
+  min-height: 112px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--reader-accent-soft) 58%, transparent), transparent 72%);
+}
+
+.notebook-note-art {
+  display: block;
+  width: min(100%, 310px);
+  height: 128px;
+  object-fit: contain;
+  opacity: 0.96;
+  filter: drop-shadow(0 10px 16px rgba(67, 91, 128, 0.1));
+}
+
+.notebook-editor-wrap {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--reader-control-border) 86%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--reader-card) 86%, var(--reader-soft));
+  box-shadow: 0 8px 24px rgba(58, 73, 100, 0.06);
+}
+
+.notebook-bg-art {
+  position: absolute;
+  z-index: 0;
+  right: -8px;
+  bottom: -28px;
+  width: min(76%, 250px);
+  max-height: 88%;
+  object-fit: contain;
+  object-position: right bottom;
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.notebook-editor {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: inherit;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.42);
+  font-size: 13px;
+  line-height: 1.8;
+  resize: none;
+}
+
+.notebook-editor:focus {
+  box-shadow: inset 0 0 0 1px var(--reader-control-active-border);
+}
+
+body[data-hana-theme="dark"] .notebook-editor {
+  background: rgba(35, 39, 47, 0.42);
+}
+
+@media (max-width: 680px) {
+  .notebook-note-art-wrap {
+    min-height: 94px;
+  }
+
+  .notebook-note-art {
+    height: 108px;
+  }
 }

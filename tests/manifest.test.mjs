@@ -30,7 +30,6 @@ test('manifest declares the v2.0.0 reader page with guarded resource access', as
 test('reader source, built assets, and cache-busting route are present', async () => {
   for (const relativePath of [
     'README.md',
-    'COLLABORATION.md',
     'routes/ui.js',
     'scripts/check-version.mjs',
     'src/panel.js',
@@ -44,10 +43,8 @@ test('reader source, built assets, and cache-busting route are present', async (
     'tests/search-route.test.mjs',
     'tests/read-route.test.mjs',
     'tests/workspace-state.test.mjs',
-    'docs/S2_EDITOR_VALIDATION.md',
-    'docs/S3_SAFE_WRITE.md',
-    'docs/S4_CODE_HTML.md',
-    'docs/S5_MAPLE_LAYOUT.md',
+    'docs/PLUGIN_LOADING.md',
+    'docs/MAPLE_REUSE_AUDIT.md',
     'tests/write-route.test.mjs',
     'assets/hana-bridge.js',
     'assets/panel.js',

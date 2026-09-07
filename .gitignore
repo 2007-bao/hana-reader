@@ -8,5 +8,7 @@ coverage/
 *.zip
 !release-archives/
 !release-archives/*.zip
+*-test-output.txt
+*-restored.zip
 .DS_Store
 Thumbs.db

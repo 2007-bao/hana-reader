@@ -30,8 +30,8 @@ test('README directory heading remains a normal heading', async () => {
   const readme = await fs.readFile(path.join(root, 'README.md'), 'utf8');
   const output = renderMarkdown(readme);
 
-  assert.match(output, /<h2>目录结构<\/h2>/);
-  assert.doesNotMatch(output, /<h2><em>目录结构<\/em><\/h2>/);
+  assert.match(output, /<h2>技术结构<\/h2>/);
+  assert.doesNotMatch(output, /<h2><em>技术结构<\/em><\/h2>/);
   assert.doesNotMatch(output, /<em>/);
 });
 
@@ -90,9 +90,9 @@ test('Chromium DOM keeps README blocks outside emphasis elements', async (t) => 
       pathToFileURL(htmlPath).href,
     ], { encoding: 'utf8', timeout: 15000, windowsHide: true });
 
-    assert.match(dom, /<h2>目录结构<\/h2>/);
+    assert.match(dom, /<h2>技术结构<\/h2>/);
     assert.match(dom, /<pre class="markdown-code"><code class="language-text">/);
-    assert.match(dom, /<h2>权限与安全边界<\/h2>/);
+    assert.match(dom, /<h2>数据与安全<\/h2>/);
     assert.doesNotMatch(dom, /<h2><em>/);
     assert.doesNotMatch(dom, /<pre><em>/);
     assert.doesNotMatch(dom, /<ul><em>/);

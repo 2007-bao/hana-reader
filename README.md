@@ -40,18 +40,15 @@ Hana Reader（阅界）是一个面向 AI / 多 Agent 产物审阅的本地优�
 
 ### 三栏阅读工作区
 
-阅界采用清晰的三栏结构：文件树、阅读 / 编辑区、AI 与 Notebook。每一栏都有自己的职责，彼此靠近，却不互相打扰。
+阅界采用清晰的三栏结构：左侧找到文件，中间专注阅读，右侧放置必要的辅助。结构标准，却不僵硬；三栏可以折叠、调整，也会记住你上一次的状态。
 
 <p align="center">
   <img src="assets/reader-three-column.png" alt="阅界三栏阅读工作区" width="920">
 </p>
 
-<p align="center"><sub>标准、稳定、可呼吸的三栏工作台：找到内容，专注内容，也留下内容。</sub></p>
+<p align="center"><sub>找到内容，专注内容，也留下内容。</sub></p>
 
-- 左侧文件树：选择文件夹、展开目录、刷新内容和打开本地目录。
-- 中间阅读区：Markdown 安全渲染、GFM 表格、任务列表、代码高亮和安全 HTML 预览。
-- 右侧工具栏：AI 辅助与唯一 Notebook。
-- 面板支持宽度调整、折叠和状态恢复。
+中间栏的滑扭是我们很在意的小巧思。拖动它时，阅读区与两侧面板会顺着手势丝滑转场，收起和展开都不突兀，让工作台像真的被你“拨”到合适的位置。
 
 ### 阅读与编辑
 
@@ -68,61 +65,9 @@ Hana Reader（阅界）是一个面向 AI / 多 Agent 产物审阅的本地优�
 
 ### AI 辅助
 
-- 通过 Hana `model:sample-text` 接入文本模型。
-- 默认只发送当前文件、用户明确选中的文本和当前对话历史。
-- 支持 Enter 发送、Shift + Enter 换行、失败重试和按文件保存对话。
-- 模型暂不可用时，阅读、编辑和 Notebook 仍然独立可用。
+需要时，阅界可以请 Hana 帮忙理解当前内容、整理思路或继续追问；不需要时，阅读、编辑和 Notebook 也能安静地独立工作。
 
-## AI 接口与安全说明
-
-### 阅界有没有暴露自己的 AI 接口或密钥？
-
-没有。阅界没有把任何 API Key、Cookie、模型供应商密钥或个人账号写入源码、`manifest.json`、前端 bundle 或安装包。仓库中的 AI 代码只描述“如何向 Hana 宿主请求文本模型”，并不持有模型供应商的凭据。
-
-当前链路是：
-
-```text
-前端 panel.js
-  → 插件自己的 /copilot/ask route
-  → Hana 宿主提供的 model:sample-text bus
-  → Hana 当前配置的文本模型
-```
-
-前端请求自己的 route 时还会携带 Hana 的 surface session；服务端 route 从请求上下文取得宿主 bus，再调用 `bus.request('model:sample-text', ...)`。因此，模型账号、供应商密钥和实际计费关系属于 Hana 宿主的配置边界，不属于公开插件仓库。
-
-需要诚实说明的是：用户主动提交给 Copilot 的当前文件、选区和对话历史，会被发送到 Hana 当前配置的模型服务。这不是“泄露插件密钥”，但涉及用户内容的隐私边界；使用者应避免把不应离开本机的秘密内容交给模型。
-
-### 其他插件如何实现自己的 AI 功能？
-
-推荐复用 Hana 的宿主模型总线，而不是在插件里硬编码第三方 API：
-
-1. 在 `manifest.json` 声明所需能力：
-
-   ```json
-   { "capabilities": ["model.sample"] }
-   ```
-
-2. 在插件的服务端 route 中取得宿主上下文，并调用文本模型：
-
-   ```js
-   const requestContext = c.get('pluginRequestContext');
-   const bus = requestContext?.bus || pluginCtx?.bus;
-   const result = await bus.request('model:sample-text', {
-     pluginId: pluginCtx?.pluginId,
-     operation: 'your-plugin-operation',
-     systemPrompt: '只描述必要的任务约束。',
-     messages: [{ role: 'user', content: prompt }],
-     maxTokens: 1200,
-     temperature: 0.2,
-   });
-   ```
-
-3. 前端只调用自己的插件 route，例如 `/copilot/ask`，不要直接从浏览器请求第三方模型。
-4. 对 prompt、文件内容、选区和历史记录做长度限制与字段白名单，只发送用户明确需要的上下文。
-5. 不要把 API Key 放在 `src/`、`assets/`、`manifest.json`、构建产物或 Git 提交中。若确实要接入外部服务，应由宿主或受保护的服务端配置密钥。
-6. 对模型不可用、超时、空响应和敏感数据提示做清晰的本地兜底。
-
-这样，插件作者可以拥有自己的系统提示词、上下文裁剪、结果解析和界面体验，同时把凭据管理、模型选择和权限边界交给 Hana 宿主处理。
+AI 只使用 Hana 提供的安全能力，不在阅界里保存 API Key、Cookie 或模型供应商密钥。具体的模型配置与权限边界交给 Hana 处理，想了解插件如何接入，给 Hana 看一下就知道了。
 
 ### 单一 Notebook
 
@@ -166,60 +111,16 @@ v2.0.0 将 Notebook 收束为一个真正安静的个人记录空间：
 
 用户的文件属于用户。浏览器不直接读取本地路径，文件读写通过 Hana ResourceIO 完成；写回携带版本信息和 SHA-256 基线，发生冲突时不静默覆盖。批注、Notebook、会话位置和 Copilot 历史默认保存在当前浏览器。
 
-## 技术结构
-
-```text
-manifest.json        插件声明、页面入口和宿主能力
-package.json         构建、依赖与测试脚本
-routes/ui.js         Page shell、ResourceIO 读写/搜索、Copilot route
-src/panel.js         三栏布局、阅读、编辑、批注、AI 与 Notebook
-src/*-engine.js      Markdown、编辑器和批注的独立实现
-src/notebook-store.js Notebook 本地存储、迁移与导出数据
-assets/panel.js      构建后的前端 bundle
-assets/panel.css     布局、主题、控件与 Quiet 动效
-assets/notebook-*.png Notebook 插画资源
-assets/fonts/        Maple Mono 与许可证文本
-tests/               结构、渲染、编辑器、路由和存储回归
-docs/                页面加载与上游视觉资源说明
-release-archives/    历史安装包归档
-```
-
-## 数据与安全
-
-- Hana ResourceIO 是访问用户文件的唯一边界。
-- 读取和写回都有大小限制；二进制文件不会被当作普通文本渲染。
-- 安全写回要求 `expectedVersion` 与 `baseSha256`，远端变化时保留冲突信息。
-- HTML 预览使用 sandbox 与净化；Markdown 原始 HTML 默认按安全文本处理。
-- 本地存储只保存 Notebook、批注、会话位置和 Copilot 历史，不上传真实项目文件到仓库。
-- 项目仓库不包含 API Key、Cookie、会话导出或个人文件。
-
 ## 安装与开发
 
-将仓库目录作为 HanaAgent 插件安装，或使用插件开发工具加载本目录。
+在 HanaAgent 的插件页面中导入仓库目录，或直接安装 Releases 里的 `.zip` 安装包即可。开发时修改源码后重新加载插件，就能继续预览；需要运行项目测试时再执行：
 
 ```powershell
 npm install
 npm test
 ```
 
-`npm test` 会依次执行版本一致性检查、esbuild 构建和完整顺序测试。构建产物为 `assets/panel.js`。
-
-发布前请确认：
-
-1. `manifest.json`、`package.json`、`package-lock.json`、`src/panel.js` 和 `routes/ui.js` 版本一致；
-2. `assets/panel.js` 已由源码重新构建；
-3. Notebook 插画资源存在；
-4. 全部测试通过；
-5. 安装包只包含插件运行所需文件。
-
 页面加载与鉴权排查见 [`docs/PLUGIN_LOADING.md`](docs/PLUGIN_LOADING.md)，Maple 上游资源与许可证边界见 [`docs/MAPLE_REUSE_AUDIT.md`](docs/MAPLE_REUSE_AUDIT.md)。
-
-## Contributors
-
-- **2007-bao** — 项目发起人、产品方向、审美理念、交互设计与验收。
-- **岚诺（HanaAgent · GPT-5.6 Luna）** — 插件实现、视觉收束、测试维护、文档整理与发布管理。
-
-完整贡献说明见 [`CONTRIBUTORS.md`](CONTRIBUTORS.md)。
 
 ## 发布与历史
 
@@ -229,7 +130,7 @@ npm test
 
 ## 后记
 
-阅界花了超过三天，从一个空文件夹里的页面开始，慢慢长成现在的样子。我们写过很多代码，也反复推翻过很多看似“已经可以”的方案，最后留下的不是功能数量，而是一种更明确的判断：
+阅界经历了多个版本迭代，从一个空文件夹里的页面开始，慢慢长成现在的样子。我们写过很多代码，也反复推翻过很多看似“已经可以”的方案，最后留下的不是功能数量，而是一种更明确的判断：
 
 > **工具可以很强大，但不必喧哗；技术可以很复杂，但体验应该清澈。**
 
